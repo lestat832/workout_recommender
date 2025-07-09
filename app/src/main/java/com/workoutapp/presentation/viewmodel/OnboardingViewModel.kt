@@ -45,6 +45,14 @@ class OnboardingViewModel @Inject constructor(
         }
     }
     
+    fun selectAllExercises() {
+        _selectedExercises.value = _exercises.value.map { it.id }.toSet()
+    }
+    
+    fun clearAllExercises() {
+        _selectedExercises.value = emptySet()
+    }
+    
     fun saveSelectedExercises() {
         viewModelScope.launch {
             _isLoading.value = true

@@ -47,8 +47,24 @@ fun OnboardingScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 24.dp)
+                .padding(bottom = 16.dp)
         )
+        
+        // Temporary testing buttons
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            TextButton(onClick = { viewModel.selectAllExercises() }) {
+                Text("Select All")
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            TextButton(onClick = { viewModel.clearAllExercises() }) {
+                Text("Clear All")
+            }
+        }
         
         LazyColumn(
             modifier = Modifier.weight(1f),

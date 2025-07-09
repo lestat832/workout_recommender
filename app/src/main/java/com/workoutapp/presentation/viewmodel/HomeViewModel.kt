@@ -37,8 +37,20 @@ class HomeViewModel @Inject constructor(
     private fun loadRecentWorkouts() {
         viewModelScope.launch {
             workoutRepository.getWorkoutsByStatus(WorkoutStatus.COMPLETED).collect { workouts ->
-                _recentWorkouts.value = workouts.take(5)
+                // Load full workout details for each workout
+                val detailedWorkouts = workouts.take(5).map { workout ->
+                    workoutRepository.getWorkoutById(workout.id) ?: workout
+                }
+                _recentWorkouts.value = detailedWorkouts
             }
         }
+    }
+    
+    fun calculateTotalWeight(workout: Workout): Float {
+        return workout.exercises.sumOf { exercise ->
+            exercise.sets.sumOf { set ->
+                if (set.completed) (set.weight * set.reps).toDouble() else 0.0
+            }
+        }.toFloat()
     }
 }

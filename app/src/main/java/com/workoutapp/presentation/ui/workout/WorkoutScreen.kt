@@ -6,7 +6,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,26 +40,32 @@ fun WorkoutScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Workout") }
-            )
-        },
-        bottomBar = {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shadowElevation = 8.dp
-            ) {
-                Button(
-                    onClick = { viewModel.completeWorkout() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    enabled = uiState.exercises.any { exercise ->
+                title = { Text("Workout") },
+                actions = {
+                    val isEnabled = uiState.exercises.any { exercise ->
                         exercise.sets.any { it.completed }
                     }
-                ) {
-                    Text("Complete Workout")
+                    TextButton(
+                        onClick = { viewModel.completeWorkout() },
+                        enabled = isEnabled
+                    ) {
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = "Complete Workout",
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Complete")
+                    }
                 }
-            }
+            )
+        },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { /* TODO: Add exercise functionality */ },
+                icon = { Icon(Icons.Default.Add, contentDescription = "Add Exercise") },
+                text = { Text("Add Exercise") }
+            )
         }
     ) { paddingValues ->
         when {
@@ -104,7 +112,8 @@ fun WorkoutScreen(
                             },
                             onUpdateSet = { setIndex, reps, weight ->
                                 viewModel.updateSet(uiState.exercises[index].id, setIndex, reps, weight)
-                            }
+                            },
+                            onShuffle = { viewModel.shuffleExercise(uiState.exercises[index].id) }
                         )
                     }
                 }
@@ -119,7 +128,8 @@ fun ExerciseCard(
     exercise: WorkoutExercise,
     onAddSet: () -> Unit,
     onRemoveSet: (Int) -> Unit,
-    onUpdateSet: (Int, Int, Float) -> Unit
+    onUpdateSet: (Int, Int, Float) -> Unit,
+    onShuffle: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth()
@@ -140,16 +150,32 @@ fun ExerciseCard(
                 )
             }
             
-            Text(
-                text = exercise.exercise.name,
-                style = MaterialTheme.typography.titleLarge
-            )
-            
-            Text(
-                text = "${exercise.exercise.muscleGroup.name} • ${exercise.exercise.equipment}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = exercise.exercise.name,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    
+                    Text(
+                        text = "${exercise.exercise.muscleGroup.name} • ${exercise.exercise.equipment}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                IconButton(onClick = onShuffle) {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = "Shuffle Exercise",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
             
             Spacer(modifier = Modifier.height(16.dp))
             
@@ -207,8 +233,14 @@ fun SetRow(
     onRemove: () -> Unit,
     onUpdate: (Int, Float) -> Unit
 ) {
-    var weight by remember(set) { mutableStateOf(set.weight.toString()) }
-    var reps by remember(set) { mutableStateOf(set.reps.toString()) }
+    fun formatWeight(value: Float): String {
+        return if (value == 0f) "" 
+        else if (value % 1 == 0f) value.toInt().toString()
+        else value.toString()
+    }
+    
+    var weight by remember(set) { mutableStateOf(formatWeight(set.weight)) }
+    var reps by remember(set) { mutableStateOf(if (set.reps > 0) set.reps.toString() else "") }
     
     Row(
         modifier = Modifier
@@ -225,15 +257,25 @@ fun SetRow(
         OutlinedTextField(
             value = weight,
             onValueChange = { newValue ->
-                weight = newValue
-                val weightFloat = newValue.toFloatOrNull() ?: 0f
-                val repsInt = reps.toIntOrNull() ?: 0
-                onUpdate(repsInt, weightFloat)
+                // Allow only valid numeric input with optional decimal
+                if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d*$"))) {
+                    weight = newValue
+                    val weightFloat = newValue.toFloatOrNull() ?: 0f
+                    val repsInt = reps.toIntOrNull() ?: 0
+                    onUpdate(repsInt, weightFloat)
+                }
             },
             modifier = Modifier.weight(2f),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center)
+            textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
+            placeholder = {
+                Text(
+                    text = "0",
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+            }
         )
         
         Spacer(modifier = Modifier.width(8.dp))
@@ -249,7 +291,14 @@ fun SetRow(
             modifier = Modifier.weight(2f),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center)
+            textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
+            placeholder = {
+                Text(
+                    text = "0",
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+            }
         )
         
         IconButton(onClick = onRemove) {

@@ -469,6 +469,157 @@ object ExerciseDataV2 {
                 "Keep your core tight throughout the movement."
             ),
             difficulty = Difficulty.INTERMEDIATE
+        ),
+        // Additional exercises to expand database
+        ExerciseEntity(
+            id = "31",
+            name = "Cable Crossover",
+            muscleGroup = MuscleGroup.CHEST,
+            equipment = "Cable",
+            category = WorkoutType.PUSH,
+            imageUrl = "${IMAGE_BASE_URL}Cable_Crossover/0.jpg",
+            instructions = listOf(
+                "Position the pulleys above your head and select the resistance.",
+                "Hold the pulleys in each hand with your arms spread and facing forward.",
+                "Bring your hands together in front of you in a hugging motion.",
+                "Return to the starting position with control."
+            ),
+            difficulty = Difficulty.INTERMEDIATE
+        ),
+        ExerciseEntity(
+            id = "32",
+            name = "Face Pull",
+            muscleGroup = MuscleGroup.SHOULDER,
+            equipment = "Cable",
+            category = WorkoutType.PUSH,
+            imageUrl = "${IMAGE_BASE_URL}Face_Pull/0.jpg",
+            instructions = listOf(
+                "Set cable at face height with rope attachment.",
+                "Pull the rope towards your face, separating hands at the end.",
+                "Focus on squeezing your rear delts and upper back.",
+                "Return to starting position with control."
+            ),
+            difficulty = Difficulty.BEGINNER
+        ),
+        ExerciseEntity(
+            id = "33",
+            name = "Hammer Curl",
+            muscleGroup = MuscleGroup.BICEP,
+            equipment = "Dumbbell",
+            category = WorkoutType.PULL,
+            imageUrl = "${IMAGE_BASE_URL}Hammer_Curl/0.jpg",
+            instructions = listOf(
+                "Stand with dumbbells at your sides, palms facing your body.",
+                "Keep your elbows stationary and curl the weights up.",
+                "Maintain the neutral grip throughout the movement.",
+                "Lower under control to starting position."
+            ),
+            difficulty = Difficulty.BEGINNER
+        ),
+        ExerciseEntity(
+            id = "34",
+            name = "Leg Extension",
+            muscleGroup = MuscleGroup.LEGS,
+            equipment = "Machine",
+            category = WorkoutType.PULL,
+            imageUrl = "${IMAGE_BASE_URL}Leg_Extensions/0.jpg",
+            instructions = listOf(
+                "Sit on the leg extension machine with your back against the backrest.",
+                "Place your ankles behind the lower pad.",
+                "Extend your legs to the maximum, exhaling as you do so.",
+                "Lower the weight back down slowly."
+            ),
+            difficulty = Difficulty.BEGINNER
+        ),
+        ExerciseEntity(
+            id = "35",
+            name = "T-Bar Row",
+            muscleGroup = MuscleGroup.BACK,
+            equipment = "Barbell",
+            category = WorkoutType.PULL,
+            imageUrl = "${IMAGE_BASE_URL}T-Bar_Row_with_Handle/0.jpg",
+            instructions = listOf(
+                "Stand over the bar with feet shoulder-width apart.",
+                "Bend at the hips and knees, keeping your back straight.",
+                "Pull the weight towards your chest, squeezing your back.",
+                "Lower under control to starting position."
+            ),
+            difficulty = Difficulty.INTERMEDIATE
+        ),
+        ExerciseEntity(
+            id = "36",
+            name = "Bulgarian Split Squat",
+            muscleGroup = MuscleGroup.LEGS,
+            equipment = "Bodyweight",
+            category = WorkoutType.PULL,
+            imageUrl = "${IMAGE_BASE_URL}Bodyweight_Bulgarian_Split_Squat/0.jpg",
+            instructions = listOf(
+                "Stand 2-3 feet in front of a bench.",
+                "Place your rear foot on the bench behind you.",
+                "Lower your body by bending your front knee.",
+                "Push through your front heel to return to start."
+            ),
+            difficulty = Difficulty.INTERMEDIATE
+        ),
+        ExerciseEntity(
+            id = "37",
+            name = "Arnold Press",
+            muscleGroup = MuscleGroup.SHOULDER,
+            equipment = "Dumbbell",
+            category = WorkoutType.PUSH,
+            imageUrl = "${IMAGE_BASE_URL}Arnold_Dumbbell_Press/0.jpg",
+            instructions = listOf(
+                "Start with dumbbells at shoulder level, palms facing you.",
+                "As you press up, rotate your palms to face forward.",
+                "Press the weights overhead until arms are extended.",
+                "Reverse the motion to return to start."
+            ),
+            difficulty = Difficulty.INTERMEDIATE
+        ),
+        ExerciseEntity(
+            id = "38",
+            name = "Cable Lateral Raise",
+            muscleGroup = MuscleGroup.SHOULDER,
+            equipment = "Cable",
+            category = WorkoutType.PUSH,
+            imageUrl = "${IMAGE_BASE_URL}Cable_Lateral_Raise/0.jpg",
+            instructions = listOf(
+                "Stand sideways to the cable machine.",
+                "Hold the handle with the far hand across your body.",
+                "Raise your arm out to the side to shoulder height.",
+                "Lower with control to starting position."
+            ),
+            difficulty = Difficulty.BEGINNER
+        ),
+        ExerciseEntity(
+            id = "39",
+            name = "Hack Squat",
+            muscleGroup = MuscleGroup.LEGS,
+            equipment = "Machine",
+            category = WorkoutType.PULL,
+            imageUrl = "${IMAGE_BASE_URL}Sled_Hack_Squat/0.jpg",
+            instructions = listOf(
+                "Position yourself on the hack squat machine.",
+                "Place feet shoulder-width apart on the platform.",
+                "Lower by bending knees to 90 degrees.",
+                "Push through heels to return to start."
+            ),
+            difficulty = Difficulty.BEGINNER
+        ),
+        ExerciseEntity(
+            id = "40",
+            name = "Preacher Curl",
+            muscleGroup = MuscleGroup.BICEP,
+            equipment = "Barbell",
+            category = WorkoutType.PULL,
+            imageUrl = "${IMAGE_BASE_URL}Preacher_Curl/0.jpg",
+            instructions = listOf(
+                "Sit on the preacher bench with arms over the pad.",
+                "Hold the barbell with an underhand grip.",
+                "Curl the weight up while keeping upper arms on the pad.",
+                "Lower slowly to full extension."
+            ),
+            difficulty = Difficulty.BEGINNER
         )
     )
 }

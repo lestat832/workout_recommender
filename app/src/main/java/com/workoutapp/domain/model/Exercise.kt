@@ -17,7 +17,8 @@ enum class MuscleGroup {
     TRICEP,
     LEGS,
     BACK,
-    BICEP
+    BICEP,
+    CORE
 }
 
 enum class WorkoutType {

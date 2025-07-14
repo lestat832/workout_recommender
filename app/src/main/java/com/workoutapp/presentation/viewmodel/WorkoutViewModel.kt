@@ -95,9 +95,21 @@ class WorkoutViewModel @Inject constructor(
     fun addSet(exerciseId: String) {
         val exercises = _uiState.value.exercises.map { exercise ->
             if (exercise.id == exerciseId) {
-                exercise.copy(
-                    sets = exercise.sets + com.workoutapp.domain.model.Set(reps = 0, weight = 0f, completed = false)
-                )
+                // Find the last completed set to copy its values
+                val lastCompletedSet = exercise.sets.lastOrNull { it.completed }
+                val newSet = if (lastCompletedSet != null) {
+                    // Copy weight and reps from last completed set
+                    com.workoutapp.domain.model.Set(
+                        reps = lastCompletedSet.reps,
+                        weight = lastCompletedSet.weight,
+                        completed = false
+                    )
+                } else {
+                    // No completed sets, use empty values
+                    com.workoutapp.domain.model.Set(reps = 0, weight = 0f, completed = false)
+                }
+                
+                exercise.copy(sets = exercise.sets + newSet)
             } else {
                 exercise
             }
@@ -124,7 +136,26 @@ class WorkoutViewModel @Inject constructor(
                 exercise.copy(
                     sets = exercise.sets.mapIndexed { index, set ->
                         if (index == setIndex) {
-                            set.copy(reps = reps, weight = weight, completed = reps > 0)
+                            set.copy(reps = reps, weight = weight)
+                        } else {
+                            set
+                        }
+                    }
+                )
+            } else {
+                exercise
+            }
+        }
+        _uiState.value = _uiState.value.copy(exercises = exercises)
+    }
+    
+    fun toggleSetCompletion(exerciseId: String, setIndex: Int) {
+        val exercises = _uiState.value.exercises.map { exercise ->
+            if (exercise.id == exerciseId) {
+                exercise.copy(
+                    sets = exercise.sets.mapIndexed { index, set ->
+                        if (index == setIndex) {
+                            set.copy(completed = !set.completed)
                         } else {
                             set
                         }

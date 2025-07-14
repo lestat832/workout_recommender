@@ -13,6 +13,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -40,7 +42,7 @@ fun WorkoutScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Workout") },
+                title = { Text("The Hunt") },
                 actions = {
                     val isEnabled = uiState.exercises.any { exercise ->
                         exercise.sets.any { it.completed }
@@ -113,6 +115,9 @@ fun WorkoutScreen(
                             onUpdateSet = { setIndex, reps, weight ->
                                 viewModel.updateSet(uiState.exercises[index].id, setIndex, reps, weight)
                             },
+                            onToggleSetCompletion = { setIndex ->
+                                viewModel.toggleSetCompletion(uiState.exercises[index].id, setIndex)
+                            },
                             onShuffle = { viewModel.shuffleExercise(uiState.exercises[index].id) }
                         )
                     }
@@ -129,6 +134,7 @@ fun ExerciseCard(
     onAddSet: () -> Unit,
     onRemoveSet: (Int) -> Unit,
     onUpdateSet: (Int, Int, Float) -> Unit,
+    onToggleSetCompletion: (Int) -> Unit,
     onShuffle: () -> Unit
 ) {
     Card(
@@ -200,7 +206,12 @@ fun ExerciseCard(
                     modifier = Modifier.weight(2f),
                     textAlign = TextAlign.Center
                 )
-                Spacer(modifier = Modifier.width(48.dp))
+                Text(
+                    text = "Done",
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.width(56.dp),
+                    textAlign = TextAlign.Center
+                )
             }
             
             Spacer(modifier = Modifier.height(8.dp))
@@ -210,7 +221,8 @@ fun ExerciseCard(
                     setNumber = index + 1,
                     set = set,
                     onRemove = { onRemoveSet(index) },
-                    onUpdate = { reps, weight -> onUpdateSet(index, reps, weight) }
+                    onUpdate = { reps, weight -> onUpdateSet(index, reps, weight) },
+                    onToggleCompletion = { onToggleSetCompletion(index) }
                 )
             }
             
@@ -231,7 +243,8 @@ fun SetRow(
     setNumber: Int,
     set: Set,
     onRemove: () -> Unit,
-    onUpdate: (Int, Float) -> Unit
+    onUpdate: (Int, Float) -> Unit,
+    onToggleCompletion: () -> Unit
 ) {
     fun formatWeight(value: Float): String {
         return if (value == 0f) "" 
@@ -239,33 +252,52 @@ fun SetRow(
         else value.toString()
     }
     
+    // Use simple String state
     var weight by remember(set) { mutableStateOf(formatWeight(set.weight)) }
     var reps by remember(set) { mutableStateOf(if (set.reps > 0) set.reps.toString() else "") }
+    
+    // Track if we should clear on next focus (for pre-filled values)
+    var shouldClearWeight by remember(set) { mutableStateOf(set.weight > 0) }
+    var shouldClearReps by remember(set) { mutableStateOf(set.reps > 0) }
     
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 4.dp)
+            .alpha(if (set.completed) 0.9f else 1f),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = "$setNumber",
             style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            color = if (set.completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
         )
         
         OutlinedTextField(
             value = weight,
             onValueChange = { newValue ->
+                // Clear the clear flag once user starts typing
+                if (shouldClearWeight && newValue != weight) {
+                    shouldClearWeight = false
+                }
                 // Allow only valid numeric input with optional decimal
-                if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d*$"))) {
+                if (newValue.isEmpty() || newValue.all { it.isDigit() || it == '.' }) {
                     weight = newValue
                     val weightFloat = newValue.toFloatOrNull() ?: 0f
                     val repsInt = reps.toIntOrNull() ?: 0
                     onUpdate(repsInt, weightFloat)
                 }
             },
-            modifier = Modifier.weight(2f),
+            modifier = Modifier
+                .weight(2f)
+                .onFocusChanged { focusState ->
+                    if (focusState.isFocused && shouldClearWeight) {
+                        // Clear the field on first focus if it has a pre-filled value
+                        weight = ""
+                        shouldClearWeight = false
+                    }
+                },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
@@ -283,12 +315,27 @@ fun SetRow(
         OutlinedTextField(
             value = reps,
             onValueChange = { newValue ->
-                reps = newValue
-                val repsInt = newValue.toIntOrNull() ?: 0
-                val weightFloat = weight.toFloatOrNull() ?: 0f
-                onUpdate(repsInt, weightFloat)
+                // Clear the clear flag once user starts typing
+                if (shouldClearReps && newValue != reps) {
+                    shouldClearReps = false
+                }
+                // Allow only valid numeric input
+                if (newValue.isEmpty() || newValue.all { it.isDigit() }) {
+                    reps = newValue
+                    val repsInt = newValue.toIntOrNull() ?: 0
+                    val weightFloat = weight.toFloatOrNull() ?: 0f
+                    onUpdate(repsInt, weightFloat)
+                }
             },
-            modifier = Modifier.weight(2f),
+            modifier = Modifier
+                .weight(2f)
+                .onFocusChanged { focusState ->
+                    if (focusState.isFocused && shouldClearReps) {
+                        // Clear the field on first focus if it has a pre-filled value
+                        reps = ""
+                        shouldClearReps = false
+                    }
+                },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
@@ -301,12 +348,10 @@ fun SetRow(
             }
         )
         
-        IconButton(onClick = onRemove) {
-            Icon(
-                Icons.Default.Delete,
-                contentDescription = "Remove set",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        Checkbox(
+            checked = set.completed,
+            onCheckedChange = { onToggleCompletion() },
+            modifier = Modifier.padding(start = 8.dp)
+        )
     }
 }

@@ -47,6 +47,7 @@ class WorkoutRepositoryImpl @Inject constructor(
                 ?: exerciseDao.getExercisesByType(WorkoutType.PULL)
                     .firstOrNull { it.id == exerciseEntity.exerciseId }
             
+            
             WorkoutExercise(
                 id = exerciseEntity.id,
                 workoutId = exerciseEntity.workoutId,

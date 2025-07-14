@@ -1,3 +1,28 @@
 <resources>
-    <string name="app_name">Workout Recommender</string>
+    <string name="app_name">Fortis Lupus</string>
+    <string name="tagline">Strength of the Wolf</string>
+    
+    <!-- Onboarding -->
+    <string name="onboarding_title">Build Your Pack</string>
+    <string name="onboarding_subtitle">Select exercises to strengthen your territory</string>
+    <string name="continue_button">Join the Pack</string>
+    
+    <!-- Home Screen -->
+    <string name="home_title">Fortis Lupus</string>
+    <string name="start_workout">Begin the Hunt</string>
+    <string name="todays_hunt">Today\'s Hunt</string>
+    <string name="pack_history">Pack History</string>
+    <string name="no_recent_workouts">No hunts recorded</string>
+    <string name="start_first_workout">Begin your journey with the pack</string>
+    
+    <!-- Workout Screen -->
+    <string name="workout_title">The Hunt</string>
+    <string name="complete_workout">Complete</string>
+    <string name="add_exercise">Add Exercise</string>
+    <string name="add_set">Add Set</string>
+    
+    <!-- Motivational -->
+    <string name="loading_message">Awakening the wolf...</string>
+    <string name="workout_complete">Another successful hunt!</string>
+    <string name="empty_state">The pack awaits...</string>
 </resources>

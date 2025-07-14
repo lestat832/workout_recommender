@@ -27,13 +27,23 @@ class SetListConverter {
         return if (data.isEmpty()) {
             emptyList()
         } else {
-            data.split(";").map { setString ->
-                val parts = setString.split(",")
-                Set(
-                    reps = parts[0].toInt(),
-                    weight = parts[1].toFloat(),
-                    completed = parts[2].toBoolean()
-                )
+            try {
+                val sets = data.split(";").mapNotNull { setString ->
+                    if (setString.isBlank()) return@mapNotNull null
+                    val parts = setString.split(",")
+                    if (parts.size >= 3) {
+                        Set(
+                            reps = parts[0].toIntOrNull() ?: 0,
+                            weight = parts[1].toFloatOrNull() ?: 0f,
+                            completed = parts[2].toBooleanStrictOrNull() ?: false
+                        )
+                    } else {
+                        null
+                    }
+                }
+                sets
+            } catch (e: Exception) {
+                emptyList()
             }
         }
     }

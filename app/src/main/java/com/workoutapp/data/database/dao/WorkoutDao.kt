@@ -12,7 +12,7 @@ interface WorkoutDao {
     @Insert
     suspend fun insertWorkout(workout: WorkoutEntity)
     
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertWorkoutExercises(exercises: List<WorkoutExerciseEntity>)
     
     @Update

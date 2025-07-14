@@ -1,4 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.WorkoutApp" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.WorkoutApp" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Wolf Theme Colors -->
+        <item name="android:colorPrimary">@color/wolf_blue</item>
+        <item name="android:colorPrimaryDark">@color/wolf_blue_dark</item>
+        <item name="android:colorAccent">@color/wolf_blue</item>
+        <item name="android:windowBackground">@color/white</item>
+    </style>
+    
+    <style name="Theme.FortisLupus" parent="android:Theme.Material.NoActionBar">
+        <!-- Dark Wolf Theme -->
+        <item name="android:colorPrimary">@color/wolf_blue</item>
+        <item name="android:colorPrimaryDark">@color/night_black</item>
+        <item name="android:colorAccent">@color/wolf_blue</item>
+        <item name="android:windowBackground">@color/wolf_charcoal_dark</item>
+        <item name="android:statusBarColor">@color/night_black</item>
+        <item name="android:navigationBarColor">@color/night_black</item>
+    </style>
+    
+    <style name="Theme.FortisLupus.Splash" parent="Theme.FortisLupus">
+        <item name="android:windowBackground">@color/wolf_charcoal</item>
+    </style>
 </resources>

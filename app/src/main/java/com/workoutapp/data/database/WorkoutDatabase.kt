@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
         WorkoutEntity::class,
         WorkoutExerciseEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(DateConverter::class, SetListConverter::class, StringListConverter::class)

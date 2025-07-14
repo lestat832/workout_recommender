@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.workoutapp.domain.model.Workout
 import com.workoutapp.domain.model.WorkoutType
@@ -33,6 +34,11 @@ import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.ui.platform.LocalContext
 import android.content.Context
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.workoutapp.R
+import androidx.compose.ui.draw.alpha
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,10 +58,27 @@ fun HomeScreen(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { 
-                    Text(
-                        "Workout Tracker",
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
                         modifier = Modifier.clickable { showDebugMenu = !showDebugMenu }
-                    )
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_wolf_logo),
+                            contentDescription = "Wolf Logo",
+                            modifier = Modifier
+                                .size(32.dp)
+                                .padding(end = 8.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                        Text(
+                            "FORTIS LUPUS",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 2.sp
+                            )
+                        )
+                    }
                 }
             )
         },
@@ -63,7 +86,7 @@ fun HomeScreen(
             ExtendedFloatingActionButton(
                 onClick = onStartWorkout,
                 icon = { Icon(Icons.Default.Add, contentDescription = "Start Workout") },
-                text = { Text("Start Workout") }
+                text = { Text("Begin the Hunt") }
             )
         }
     ) { paddingValues ->
@@ -136,7 +159,7 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(24.dp))
             
             Text(
-                text = "Recent Workouts",
+                text = "Pack History",
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
@@ -148,11 +171,30 @@ fun HomeScreen(
                         .padding(32.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "No workouts yet.\nTap the button to start your first workout!",
-                        textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.wolf_howling_splash),
+                            contentDescription = "Howling Wolf",
+                            modifier = Modifier
+                                .size(120.dp)
+                                .padding(bottom = 16.dp)
+                                .alpha(0.3f),
+                            contentScale = ContentScale.Fit
+                        )
+                        Text(
+                            text = "The pack awaits...",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Begin your first hunt below",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             } else {
                 LazyColumn(
@@ -197,7 +239,7 @@ fun NextWorkoutCard(lastWorkout: Workout?, dateOffset: Int = 0) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Today's Workout",
+                    text = "Today's Hunt",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
@@ -211,15 +253,18 @@ fun NextWorkoutCard(lastWorkout: Workout?, dateOffset: Int = 0) {
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
-                text = "${nextWorkoutType.name} Day",
+                text = when (nextWorkoutType) {
+                    WorkoutType.PUSH -> "Alpha Training"
+                    WorkoutType.PULL -> "Pack Strength"
+                },
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             
             Text(
                 text = when (nextWorkoutType) {
-                    WorkoutType.PUSH -> "Chest, Shoulder, Tricep"
-                    WorkoutType.PULL -> "Legs, Back, Bicep"
+                    WorkoutType.PUSH -> "Chest • Shoulders • Triceps"
+                    WorkoutType.PULL -> "Legs • Back • Biceps"
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)

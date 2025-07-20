@@ -1,6 +1,6 @@
-# Workout Tracker App
+# Fortis Lupus (Workout Tracker App)
 
-An Android application for tracking workouts with intelligent exercise recommendations.
+An Android application for tracking workouts with intelligent exercise recommendations, featuring a wolf-themed design and powerful workout planning capabilities.
 
 ## Features
 
@@ -41,6 +41,36 @@ app/
 ├── presentation/   # UI, ViewModels
 └── di/            # Dependency injection
 ```
+
+## Testing & Debug Features
+
+### Date Testing Debug Menu
+
+The app includes a hidden debug menu for testing date-dependent features without waiting for actual days to pass.
+
+#### Accessing the Debug Menu
+1. Tap on the **"FORTIS LUPUS"** title in the app header
+2. A debug dialog will appear with date offset controls
+
+#### Using the Debug Menu
+- **Adjust Date**: Use the `-` and `+` buttons to change the date offset (in days)
+- **Current Offset**: The center displays the current offset value
+- **Apply Changes**: Click "Apply" to save and immediately update the app's date
+- **Reset**: Set offset to 0 and click "Apply" to return to the current date
+
+#### What the Date Offset Affects
+- **Workout Type**: Alternates between Alpha Training (Push) and Pack Strength (Pull)
+- **Exercise Cooldown**: 7-day cooldown period for exercises
+- **Today's Hunt**: The date displayed on the main screen
+- **Pack History**: Ordering and display of recent workouts
+
+#### Testing Scenarios
+- **Test Exercise Cooldown**: Set offset to +8 days to make all exercises available again
+- **Test Workout Alternation**: Set offset to +1 to switch between Push/Pull workouts
+- **Test Future State**: Set offset to +30 to see how the app behaves a month ahead
+- **Test Workout History**: Create workouts with different date offsets to populate history
+
+**Note**: This is a development/testing feature only and should not be included in production builds.
 
 ## Exercise Data
 

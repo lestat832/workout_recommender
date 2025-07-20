@@ -12,7 +12,8 @@ data class Workout(
 
 enum class WorkoutStatus {
     IN_PROGRESS,
-    COMPLETED
+    COMPLETED,
+    INCOMPLETE
 }
 
 data class WorkoutExercise(

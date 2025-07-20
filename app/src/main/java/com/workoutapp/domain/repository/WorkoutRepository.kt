@@ -9,6 +9,7 @@ import java.util.Date
 interface WorkoutRepository {
     suspend fun createWorkout(workout: Workout): String
     suspend fun updateWorkout(workout: Workout)
+    suspend fun deleteWorkout(workoutId: String)
     suspend fun getWorkoutById(id: String): Workout?
     suspend fun getLastWorkout(): Workout?
     fun getWorkoutsByStatus(status: WorkoutStatus): Flow<List<Workout>>

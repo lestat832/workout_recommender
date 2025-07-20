@@ -219,6 +219,63 @@ class WorkoutViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(exercises = exercises)
     }
     
+    fun removeExercise(exerciseId: String) {
+        val exercises = _uiState.value.exercises.filter { it.id != exerciseId }
+        _uiState.value = _uiState.value.copy(exercises = exercises)
+    }
+    
+    fun addExerciseToWorkout(exercise: Exercise) {
+        val workoutId = currentWorkout?.id ?: return
+        
+        val newWorkoutExercise = WorkoutExercise(
+            id = UUID.randomUUID().toString(),
+            workoutId = workoutId,
+            exercise = exercise,
+            sets = listOf(com.workoutapp.domain.model.Set(reps = 0, weight = 0f, completed = false))
+        )
+        
+        val exercises = _uiState.value.exercises + newWorkoutExercise
+        _uiState.value = _uiState.value.copy(exercises = exercises)
+    }
+    
+    fun getCurrentWorkoutType(): WorkoutType? {
+        return currentWorkout?.type
+    }
+    
+    fun getCurrentExerciseIds(): List<String> {
+        return _uiState.value.exercises.map { it.exercise.id }
+    }
+    
+    fun cancelWorkout() {
+        viewModelScope.launch {
+            currentWorkout?.let { workout ->
+                // Delete the workout entirely
+                workoutRepository.deleteWorkout(workout.id)
+                _uiState.value = _uiState.value.copy(isCompleted = true)
+            }
+        }
+    }
+    
+    fun saveWorkoutProgress() {
+        viewModelScope.launch {
+            currentWorkout?.let { workout ->
+                // Save all workout exercises with current progress
+                _uiState.value.exercises.forEach { exercise ->
+                    workoutRepository.addExerciseToWorkout(workout.id, exercise)
+                }
+                
+                // Update workout status to incomplete
+                val incompleteWorkout = workout.copy(
+                    status = WorkoutStatus.INCOMPLETE,
+                    exercises = _uiState.value.exercises
+                )
+                workoutRepository.updateWorkout(incompleteWorkout)
+                
+                _uiState.value = _uiState.value.copy(isCompleted = true)
+            }
+        }
+    }
+    
     fun completeWorkout() {
         viewModelScope.launch {
             currentWorkout?.let { workout ->

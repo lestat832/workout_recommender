@@ -37,6 +37,13 @@ class WorkoutRepositoryImpl @Inject constructor(
         workoutDao.updateWorkout(workoutEntity)
     }
     
+    override suspend fun deleteWorkout(workoutId: String) {
+        // Delete workout exercises first
+        workoutDao.deleteWorkoutExercises(workoutId)
+        // Then delete the workout
+        workoutDao.deleteWorkout(workoutId)
+    }
+    
     override suspend fun getWorkoutById(id: String): Workout? {
         val workoutEntity = workoutDao.getWorkoutById(id) ?: return null
         val exerciseEntities = workoutDao.getWorkoutExercises(id)

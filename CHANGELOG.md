@@ -2,6 +2,52 @@
 
 All notable changes to the Workout Tracker app will be documented in this file.
 
+## [Unreleased] - 2025-01-20
+
+### Added
+- **Remove Exercise Feature**: Delete button on each exercise card with confirmation dialog
+  - Red trash icon for clear visual indication
+  - "Remove [Exercise Name] from workout?" confirmation
+  - Smart logic: removing last exercise prompts to cancel entire workout
+- **Cancel Workout Options**: Three-dot overflow menu in workout screen top bar
+  - "Save Progress" - Mark workout as incomplete but preserve completed sets
+  - "Discard" - Delete workout entirely with no saved data
+  - "Continue" - Return to workout without changes
+- **Working Add Exercise**: Fixed non-functional FAB button
+  - Opens filtered exercise selection screen mid-workout
+  - Shows only exercises matching current workout type (Push/Pull)
+  - Excludes exercises already in workout and those in 7-day cooldown
+  - Organized by muscle groups with collapsible sections
+- **AddExerciseScreen**: New screen for mid-workout exercise selection
+  - Familiar UI matching "Build Your Pack" onboarding
+  - Grouped by muscle categories (Chest, Shoulders, Back, Biceps, Legs, Triceps, Core)
+  - Alphabetical sorting within each group
+  - Shows availability count per muscle group
+- **Enhanced Navigation**: Proper screen flow for adding exercises
+  - Callback-based navigation between workout and exercise selection
+  - Seamless return to workout with selected exercise added
+
+### Changed
+- **Workout Data Model**: Added INCOMPLETE status for partially completed workouts
+- **Repository Layer**: Added deleteWorkout and deleteWorkoutExercises methods
+- **Navigation Architecture**: Updated to support mid-workout exercise addition
+- **README Documentation**: Added comprehensive debug menu documentation
+  - Instructions for accessing hidden date testing feature
+  - Testing scenarios for workout alternation and exercise cooldowns
+  - Clear guidance for developers and testers
+
+### Fixed
+- **Import Errors**: Resolved LocalNavController and lifecycle compose import issues
+- **Navigation Dependencies**: Simplified navigation approach using callbacks
+- **Workout State Management**: Proper handling of exercise addition/removal
+- **Database Integrity**: Proper cleanup when deleting workouts and exercises
+
+### Technical
+- **New ViewModels**: AddExerciseViewModel for exercise selection logic
+- **Enhanced WorkoutViewModel**: Methods for exercise management (add, remove, cancel)
+- **Navigation Updates**: Support for passing data between workout screens
+- **Database Schema**: Extended with delete operations and incomplete status
+
 ## [Unreleased] - 2025-01-13
 
 ### Added

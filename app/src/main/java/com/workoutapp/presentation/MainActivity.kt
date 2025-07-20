@@ -15,6 +15,7 @@ import com.workoutapp.presentation.ui.home.HomeScreen
 import com.workoutapp.presentation.ui.onboarding.OnboardingScreen
 import com.workoutapp.presentation.ui.theme.WorkoutAppTheme
 import com.workoutapp.presentation.ui.workout.WorkoutScreen
+import com.workoutapp.presentation.ui.workout.AddExerciseScreen
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -67,6 +68,34 @@ fun WorkoutNavigation() {
                     navController.navigate("home") {
                         popUpTo("workout") { inclusive = true }
                     }
+                },
+                onNavigateToAddExercise = { workoutType, exerciseIds, onExerciseSelected ->
+                    navController.currentBackStackEntry?.savedStateHandle?.set("onExerciseSelected", onExerciseSelected)
+                    navController.navigate("addExercise/${workoutType}/${exerciseIds.joinToString(",")}")
+                }
+            )
+        }
+        
+        composable("addExercise/{workoutType}/{currentExerciseIds}") { backStackEntry ->
+            val workoutType = backStackEntry.arguments?.getString("workoutType") ?: ""
+            val exerciseIdsString = backStackEntry.arguments?.getString("currentExerciseIds") ?: ""
+            val currentExerciseIds = if (exerciseIdsString.isNotBlank()) {
+                exerciseIdsString.split(",")
+            } else {
+                emptyList()
+            }
+            
+            val onExerciseSelected = navController.previousBackStackEntry?.savedStateHandle?.get<(com.workoutapp.domain.model.Exercise) -> Unit>("onExerciseSelected")
+            
+            AddExerciseScreen(
+                workoutType = workoutType,
+                currentExerciseIds = currentExerciseIds,
+                onExerciseSelected = { exercise ->
+                    onExerciseSelected?.invoke(exercise)
+                    navController.popBackStack()
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }

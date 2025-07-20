@@ -21,6 +21,12 @@ interface WorkoutDao {
     @Update
     suspend fun updateWorkoutExercise(exercise: WorkoutExerciseEntity)
     
+    @Query("DELETE FROM workouts WHERE id = :workoutId")
+    suspend fun deleteWorkout(workoutId: String)
+    
+    @Query("DELETE FROM workout_exercises WHERE workoutId = :workoutId")
+    suspend fun deleteWorkoutExercises(workoutId: String)
+    
     @Query("SELECT * FROM workouts WHERE id = :id")
     suspend fun getWorkoutById(id: String): WorkoutEntity?
     

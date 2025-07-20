@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,6 +22,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.workoutapp.domain.model.Exercise
 import com.workoutapp.domain.model.Set
 import com.workoutapp.domain.model.WorkoutExercise
 import com.workoutapp.presentation.viewmodel.WorkoutViewModel
@@ -29,9 +31,17 @@ import com.workoutapp.presentation.viewmodel.WorkoutViewModel
 @Composable
 fun WorkoutScreen(
     viewModel: WorkoutViewModel = hiltViewModel(),
-    onWorkoutComplete: () -> Unit
+    onWorkoutComplete: () -> Unit,
+    onNavigateToAddExercise: (String, List<String>, (Exercise) -> Unit) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    
+    // Dialog states
+    var showCancelDialog by remember { mutableStateOf(false) }
+    var showRemoveExerciseDialog by remember { mutableStateOf(false) }
+    var exerciseToRemove by remember { mutableStateOf<String?>(null) }
+    var exerciseNameToRemove by remember { mutableStateOf("") }
+    var showOverflowMenu by remember { mutableStateOf(false) }
     
     LaunchedEffect(uiState.isCompleted) {
         if (uiState.isCompleted) {
@@ -59,12 +69,37 @@ fun WorkoutScreen(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Complete")
                     }
+                    
+                    Box {
+                        IconButton(onClick = { showOverflowMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                        }
+                        
+                        DropdownMenu(
+                            expanded = showOverflowMenu,
+                            onDismissRequest = { showOverflowMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Cancel Workout") },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    showCancelDialog = true
+                                }
+                            )
+                        }
+                    }
                 }
             )
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { /* TODO: Add exercise functionality */ },
+                onClick = { 
+                    val workoutType = viewModel.getCurrentWorkoutType()?.name ?: "PUSH"
+                    val currentExerciseIds = viewModel.getCurrentExerciseIds()
+                    onNavigateToAddExercise(workoutType, currentExerciseIds) { selectedExercise ->
+                        viewModel.addExerciseToWorkout(selectedExercise)
+                    }
+                },
                 icon = { Icon(Icons.Default.Add, contentDescription = "Add Exercise") },
                 text = { Text("Add Exercise") }
             )
@@ -118,12 +153,92 @@ fun WorkoutScreen(
                             onToggleSetCompletion = { setIndex ->
                                 viewModel.toggleSetCompletion(uiState.exercises[index].id, setIndex)
                             },
-                            onShuffle = { viewModel.shuffleExercise(uiState.exercises[index].id) }
+                            onShuffle = { viewModel.shuffleExercise(uiState.exercises[index].id) },
+                            onRemoveExercise = {
+                                exerciseToRemove = uiState.exercises[index].id
+                                exerciseNameToRemove = uiState.exercises[index].exercise.name
+                                showRemoveExerciseDialog = true
+                            }
                         )
                     }
                 }
             }
         }
+    }
+    
+    // Cancel Workout Dialog
+    if (showCancelDialog) {
+        AlertDialog(
+            onDismissRequest = { showCancelDialog = false },
+            title = { Text("Cancel Workout") },
+            text = { Text("What would you like to do with your progress?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showCancelDialog = false
+                        viewModel.saveWorkoutProgress()
+                    }
+                ) {
+                    Text("Save Progress")
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(
+                        onClick = {
+                            showCancelDialog = false
+                            viewModel.cancelWorkout()
+                        }
+                    ) {
+                        Text("Discard")
+                    }
+                    TextButton(
+                        onClick = { showCancelDialog = false }
+                    ) {
+                        Text("Continue")
+                    }
+                }
+            }
+        )
+    }
+    
+    // Remove Exercise Dialog
+    if (showRemoveExerciseDialog) {
+        AlertDialog(
+            onDismissRequest = { showRemoveExerciseDialog = false },
+            title = { Text("Remove Exercise") },
+            text = { Text("Remove $exerciseNameToRemove from your workout?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showRemoveExerciseDialog = false
+                        exerciseToRemove?.let { exerciseId ->
+                            // Check if this is the last exercise
+                            if (uiState.exercises.size <= 1) {
+                                showCancelDialog = true
+                            } else {
+                                viewModel.removeExercise(exerciseId)
+                            }
+                        }
+                        exerciseToRemove = null
+                        exerciseNameToRemove = ""
+                    }
+                ) {
+                    Text("Remove")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { 
+                        showRemoveExerciseDialog = false
+                        exerciseToRemove = null
+                        exerciseNameToRemove = ""
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -135,7 +250,8 @@ fun ExerciseCard(
     onRemoveSet: (Int) -> Unit,
     onUpdateSet: (Int, Int, Float) -> Unit,
     onToggleSetCompletion: (Int) -> Unit,
-    onShuffle: () -> Unit
+    onShuffle: () -> Unit,
+    onRemoveExercise: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth()
@@ -174,12 +290,22 @@ fun ExerciseCard(
                     )
                 }
                 
-                IconButton(onClick = onShuffle) {
-                    Icon(
-                        Icons.Default.Refresh,
-                        contentDescription = "Shuffle Exercise",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                Row {
+                    IconButton(onClick = onRemoveExercise) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Remove Exercise",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    
+                    IconButton(onClick = onShuffle) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = "Shuffle Exercise",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
             

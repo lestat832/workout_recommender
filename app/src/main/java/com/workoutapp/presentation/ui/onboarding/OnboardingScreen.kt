@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -36,6 +37,14 @@ fun OnboardingScreen(
     val exercises by viewModel.exercises.collectAsState()
     val selectedExercises by viewModel.selectedExercises.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isComplete by viewModel.isComplete.collectAsState()
+    
+    // Handle completion
+    LaunchedEffect(isComplete) {
+        if (isComplete) {
+            onComplete()
+        }
+    }
     
     // Track which muscle groups are expanded
     val expandedGroups = remember { mutableStateMapOf<MuscleGroup, Boolean>() }
@@ -124,7 +133,6 @@ fun OnboardingScreen(
         Button(
             onClick = {
                 viewModel.saveSelectedExercises()
-                onComplete()
             },
             enabled = selectedExercises.isNotEmpty() && !isLoading,
             modifier = Modifier

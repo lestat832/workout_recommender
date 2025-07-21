@@ -21,6 +21,9 @@ interface ExerciseDao {
     suspend fun insertExercises(exercises: List<ExerciseEntity>)
     
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertExercise(exercise: ExerciseEntity): Long
+    
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUserExercise(userExercise: UserExerciseEntity)
     
     @Query("UPDATE user_exercises SET isActive = :isActive WHERE exerciseId = :exerciseId")
@@ -28,4 +31,13 @@ interface ExerciseDao {
     
     @Query("SELECT * FROM user_exercises WHERE isActive = 1")
     fun getActiveUserExercises(): Flow<List<UserExerciseEntity>>
+    
+    @Query("SELECT * FROM exercises WHERE isUserCreated = 1 ORDER BY createdAt DESC")
+    fun getCustomExercises(): Flow<List<ExerciseEntity>>
+    
+    @Query("DELETE FROM exercises WHERE id = :exerciseId AND isUserCreated = 1")
+    suspend fun deleteCustomExercise(exerciseId: String)
+    
+    @Query("SELECT * FROM exercises WHERE LOWER(name) = LOWER(:name) AND isUserCreated = 1 LIMIT 1")
+    suspend fun getCustomExerciseByName(name: String): ExerciseEntity?
 }

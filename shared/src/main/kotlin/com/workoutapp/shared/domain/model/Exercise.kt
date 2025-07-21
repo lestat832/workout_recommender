@@ -1,5 +1,8 @@
-package com.workoutapp.domain.model
+package com.workoutapp.shared.domain.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class Exercise(
     val id: String,
     val name: String,
@@ -8,14 +11,10 @@ data class Exercise(
     val category: WorkoutType,
     val imageUrl: String? = null,
     val instructions: List<String> = emptyList(),
-    val difficulty: Difficulty = Difficulty.BEGINNER,
-    val isUserCreated: Boolean = false
-) {
-    companion object {
-        fun generateCustomId(): String = "custom_${java.util.UUID.randomUUID()}"
-    }
-}
+    val difficulty: Difficulty = Difficulty.BEGINNER
+)
 
+@Serializable
 enum class MuscleGroup {
     CHEST,
     SHOULDER,
@@ -26,11 +25,13 @@ enum class MuscleGroup {
     CORE
 }
 
+@Serializable
 enum class WorkoutType {
     PUSH,
     PULL
 }
 
+@Serializable
 enum class Difficulty {
     BEGINNER,
     INTERMEDIATE,

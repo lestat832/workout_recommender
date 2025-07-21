@@ -52,6 +52,9 @@ android {
 }
 
 dependencies {
+    // Shared KMP module
+    implementation(project(":shared"))
+    
     // Core Android dependencies
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
@@ -82,6 +85,9 @@ dependencies {
     
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.5.0")
+    
+    // DataStore for preferences
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
     
     // Testing
     testImplementation("junit:junit:4.13.2")

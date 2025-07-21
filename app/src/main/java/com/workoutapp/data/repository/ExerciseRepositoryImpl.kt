@@ -26,7 +26,8 @@ class ExerciseRepositoryImpl @Inject constructor(
                     category = entity.category,
                     imageUrl = entity.imageUrl,
                     instructions = entity.instructions,
-                    difficulty = entity.difficulty
+                    difficulty = entity.difficulty,
+                    isUserCreated = entity.isUserCreated
                 )
             }
         }
@@ -39,7 +40,11 @@ class ExerciseRepositoryImpl @Inject constructor(
                 name = entity.name,
                 muscleGroup = entity.muscleGroup,
                 equipment = entity.equipment,
-                category = entity.category
+                category = entity.category,
+                imageUrl = entity.imageUrl,
+                instructions = entity.instructions,
+                difficulty = entity.difficulty,
+                isUserCreated = entity.isUserCreated
             )
         }
     }
@@ -51,7 +56,11 @@ class ExerciseRepositoryImpl @Inject constructor(
                 name = entity.name,
                 muscleGroup = entity.muscleGroup,
                 equipment = entity.equipment,
-                category = entity.category
+                category = entity.category,
+                imageUrl = entity.imageUrl,
+                instructions = entity.instructions,
+                difficulty = entity.difficulty,
+                isUserCreated = entity.isUserCreated
             )
         }
     }
@@ -88,9 +97,61 @@ class ExerciseRepositoryImpl @Inject constructor(
                 category = exercise.category,
                 imageUrl = exercise.imageUrl,
                 instructions = exercise.instructions,
-                difficulty = exercise.difficulty
+                difficulty = exercise.difficulty,
+                isUserCreated = exercise.isUserCreated,
+                createdAt = if (exercise.isUserCreated) System.currentTimeMillis() else null
             )
         }
         exerciseDao.insertExercises(entities)
+    }
+    
+    override suspend fun createCustomExercise(exercise: Exercise) {
+        val entity = ExerciseEntity(
+            id = exercise.id,
+            name = exercise.name,
+            muscleGroup = exercise.muscleGroup,
+            equipment = exercise.equipment,
+            category = exercise.category,
+            imageUrl = exercise.imageUrl,
+            instructions = exercise.instructions,
+            difficulty = exercise.difficulty,
+            isUserCreated = true,
+            createdAt = System.currentTimeMillis()
+        )
+        exerciseDao.insertExercise(entity)
+    }
+    
+    override suspend fun getCustomExerciseByName(name: String): Exercise? {
+        return exerciseDao.getCustomExerciseByName(name)?.let { entity ->
+            Exercise(
+                id = entity.id,
+                name = entity.name,
+                muscleGroup = entity.muscleGroup,
+                equipment = entity.equipment,
+                category = entity.category,
+                imageUrl = entity.imageUrl,
+                instructions = entity.instructions,
+                difficulty = entity.difficulty,
+                isUserCreated = entity.isUserCreated
+            )
+        }
+    }
+    
+    override fun getCustomExercises(): Flow<List<Exercise>> {
+        return exerciseDao.getCustomExercises().map { entities ->
+            entities.map { entity ->
+                Exercise(
+                    id = entity.id,
+                    name = entity.name,
+                    muscleGroup = entity.muscleGroup,
+                    equipment = entity.equipment,
+                    category = entity.category,
+                    imageUrl = entity.imageUrl,
+                    instructions = entity.instructions,
+                    difficulty = entity.difficulty,
+                    isUserCreated = entity.isUserCreated
+                )
+            }
+        }
     }
 }

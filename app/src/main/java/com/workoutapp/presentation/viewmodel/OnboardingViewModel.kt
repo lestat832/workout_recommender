@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.workoutapp.domain.model.Exercise
 import com.workoutapp.domain.repository.ExerciseRepository
+import com.workoutapp.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,7 +14,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
-    private val exerciseRepository: ExerciseRepository
+    private val exerciseRepository: ExerciseRepository,
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
     
     private val _exercises = MutableStateFlow<List<Exercise>>(emptyList())
@@ -24,6 +26,9 @@ class OnboardingViewModel @Inject constructor(
     
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    
+    private val _isComplete = MutableStateFlow(false)
+    val isComplete: StateFlow<Boolean> = _isComplete.asStateFlow()
     
     init {
         loadExercises()
@@ -58,6 +63,8 @@ class OnboardingViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 exerciseRepository.setUserExercises(_selectedExercises.value.toList())
+                userPreferencesRepository.markOnboardingComplete()
+                _isComplete.value = true
             } finally {
                 _isLoading.value = false
             }

@@ -2,6 +2,54 @@
 
 All notable changes to the Workout Tracker app will be documented in this file.
 
+## [Unreleased] - 2025-01-21
+
+### Added
+- **Custom Exercise Creation**: Complete feature for creating custom exercises during workouts
+  - Create custom exercises mid-workout via "Create Custom" button in AddExerciseScreen
+  - Muscle group selection: Chest, Shoulders, Back, Biceps, Triceps, Legs, Core
+  - Equipment options: None, Bodyweight, Dumbbell, Barbell, Cable, Machine, Other
+  - Real-time exercise preview with wolf placeholder image
+  - Automatic workout type assignment (Push/Pull) based on muscle group
+  - Custom exercise validation with duplicate name prevention
+  - "CUSTOM" badge distinguishes user-created exercises throughout app
+  - Custom exercises appear in appropriate muscle group sections
+- **Onboarding Persistence Fix**: Resolved critical issue where onboarding showed every app launch
+  - Added DataStore preferences system for persistent app-level settings
+  - Dynamic navigation: first launch → onboarding, subsequent → home screen
+  - UserPreferencesRepository with proper dependency injection
+  - Fixed race condition in onboarding completion flow
+  - MainViewModel provides reactive onboarding status to navigation
+
+### Changed
+- **Database Schema**: Updated to version 4 with migration support
+  - Added `isUserCreated` boolean field to distinguish custom exercises
+  - Added `createdAt` timestamp field for custom exercise tracking
+- **ExerciseRepository**: Extended with custom exercise management methods
+  - `createCustomExercise()` for saving new custom exercises
+  - `getCustomExerciseByName()` for duplicate validation
+  - `getCustomExercises()` for retrieving user-created exercises
+- **Navigation Architecture**: Enhanced with CreateExerciseScreen integration
+  - Added "createExercise" route with proper parameter passing
+  - Seamless navigation flow: Workout → Add Exercise → Create Custom → Back
+- **AddExerciseScreen**: Enhanced with custom exercise creation capability
+  - "Create Custom" button in top app bar for easy access
+  - Custom exercises display with distinctive "CUSTOM" badge
+
+### Fixed
+- **Onboarding Loop**: Eliminated infinite onboarding screen on every app launch
+- **Smart Cast Error**: Fixed Kotlin smart cast issue in CreateExerciseScreen LaunchedEffect
+- **Async Operation Race Condition**: Proper completion handling in onboarding flow
+- **Exercise Repository**: Updated all entity mapping to include new custom exercise fields
+
+### Technical
+- **DataStore Integration**: Added androidx.datastore:datastore-preferences dependency
+- **Hilt Modules**: Created DataStoreModule for dependency injection
+- **Database Migration**: MIGRATION_3_4 adds custom exercise support
+- **ViewModels**: New CreateExerciseViewModel and MainViewModel
+- **Repository Pattern**: UserPreferencesRepositoryImpl with DataStore backend
+- **State Management**: Proper async operation handling with completion states
+
 ## [Unreleased] - 2025-01-20
 
 ### Added

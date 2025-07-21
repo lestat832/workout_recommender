@@ -7,7 +7,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -16,6 +19,8 @@ import com.workoutapp.presentation.ui.onboarding.OnboardingScreen
 import com.workoutapp.presentation.ui.theme.WorkoutAppTheme
 import com.workoutapp.presentation.ui.workout.WorkoutScreen
 import com.workoutapp.presentation.ui.workout.AddExerciseScreen
+import com.workoutapp.presentation.ui.workout.CreateExerciseScreen
+import com.workoutapp.presentation.viewmodel.MainViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -37,12 +42,15 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun WorkoutNavigation() {
+fun WorkoutNavigation(
+    mainViewModel: MainViewModel = hiltViewModel()
+) {
     val navController = rememberNavController()
+    val isOnboardingComplete by mainViewModel.isOnboardingComplete.collectAsState(initial = false)
     
     NavHost(
         navController = navController,
-        startDestination = "onboarding" // TODO: Check if first launch
+        startDestination = if (isOnboardingComplete) "home" else "onboarding"
     ) {
         composable("onboarding") {
             OnboardingScreen(
@@ -95,6 +103,21 @@ fun WorkoutNavigation() {
                     navController.popBackStack()
                 },
                 onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToCreateExercise = {
+                    navController.navigate("createExercise")
+                }
+            )
+        }
+        
+        composable("createExercise") {
+            CreateExerciseScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onExerciseCreated = { exercise ->
+                    // Navigate back to AddExerciseScreen after creating exercise
                     navController.popBackStack()
                 }
             )

@@ -32,6 +32,61 @@ An Android application for tracking workouts with intelligent exercise recommend
 3. Sync project with Gradle files
 4. Run on emulator or physical device
 
+## Building and Testing
+
+### Building APK for Phone Testing
+
+#### Method 1: Direct Install via Android Studio (Recommended)
+1. **Enable Developer Mode** on your phone:
+   - Go to Settings → About Phone → tap "Build Number" 7 times
+   - Go to Settings → Developer Options → enable "USB Debugging"
+2. **Connect phone** via USB cable
+3. **Select your device** in Android Studio device dropdown
+4. **Click Run button** (▷) - app builds and installs automatically
+
+#### Method 2: Build APK File for Manual Installation
+```bash
+# Debug APK (for testing)
+./gradlew assembleDebug
+
+# Release APK (for distribution) 
+./gradlew assembleRelease
+```
+
+**APK Location:**
+- Debug: `app/build/outputs/apk/debug/app-debug.apk`
+- Release: `app/build/outputs/apk/release/app-release.apk`
+
+#### Method 3: Install via ADB Command Line
+```bash
+# Verify device connection
+adb devices
+
+# Install APK
+adb install app/build/outputs/apk/debug/app-debug.apk
+
+# Install over existing (update)
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Transferring APK to Your Phone
+- **Email**: Attach APK and email to yourself
+- **Cloud Storage**: Upload to Google Drive/Dropbox, download on phone
+- **USB Transfer**: Copy APK file directly to phone storage
+- **Wireless Tools**: Use ADB wireless or file sharing apps
+
+### Installing on Android Device
+1. Download/transfer APK to your phone
+2. Open the APK file (may need to allow "Unknown Sources" in Settings)
+3. Tap "Install" and wait for completion
+4. Find "Fortis Lupus" in your app drawer
+
+### Development Tips
+- Use **Debug APK** for testing (includes debug symbols, larger file)
+- Use **Release APK** for sharing (optimized, smaller file)
+- Monitor logs with `adb logcat | grep WorkoutApp` while testing
+- Enable USB Debugging for faster development iteration
+
 ## Project Structure
 
 ```

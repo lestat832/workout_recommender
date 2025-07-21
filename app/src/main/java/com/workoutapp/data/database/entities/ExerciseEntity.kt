@@ -19,5 +19,7 @@ data class ExerciseEntity(
     val category: WorkoutType,
     val imageUrl: String? = null,
     val instructions: List<String> = emptyList(),
-    val difficulty: Difficulty = Difficulty.BEGINNER
+    val difficulty: Difficulty = Difficulty.BEGINNER,
+    val isUserCreated: Boolean = false,
+    val createdAt: Long? = null
 )

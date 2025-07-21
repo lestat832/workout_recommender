@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -29,6 +30,7 @@ fun AddExerciseScreen(
     currentExerciseIds: List<String>,
     onExerciseSelected: (Exercise) -> Unit,
     onNavigateBack: () -> Unit,
+    onNavigateToCreateExercise: () -> Unit,
     viewModel: AddExerciseViewModel = hiltViewModel()
 ) {
     val exercises by viewModel.exercises.collectAsState()
@@ -48,6 +50,19 @@ fun AddExerciseScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    TextButton(
+                        onClick = onNavigateToCreateExercise
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Create",
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Create Custom")
                     }
                 }
             )
@@ -242,10 +257,29 @@ fun AddExerciseCard(
                     .weight(1f)
                     .padding(horizontal = 8.dp)
             ) {
-                Text(
-                    text = exercise.name,
-                    style = MaterialTheme.typography.bodyLarge
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = exercise.name,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    if (exercise.isUserCreated) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer
+                            )
+                        ) {
+                            Text(
+                                text = "CUSTOM",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+                }
                 Text(
                     text = "${exercise.muscleGroup.name} • ${exercise.equipment}",
                     style = MaterialTheme.typography.bodySmall,

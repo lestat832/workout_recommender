@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -30,18 +31,25 @@ class AddExerciseViewModel @Inject constructor(
             _isLoading.value = true
             
             try {
-                val type = if (workoutType == "PUSH") WorkoutType.PUSH else WorkoutType.PULL
+                // Get all exercises and user's active exercise IDs
+                val allExercises = exerciseRepository.getAllExercises().first()
+                val activeExerciseIds = exerciseRepository.getActiveUserExercises().first()
                 
-                // Get all selected exercises of the same type
-                val selectedExercises = exerciseRepository.getUserActiveExercisesByType(type)
+                // Filter to only user-selected exercises
+                val userSelectedExercises = allExercises.filter { exercise ->
+                    exercise.id in activeExerciseIds
+                }
                 
                 // Get exercises done in the last week
                 val recentExerciseIds = workoutRepository.getExerciseIdsFromLastWeek()
                 
                 // Filter out current exercises and recent exercises
-                val availableExercises = selectedExercises.filter { exercise ->
-                    exercise.id !in currentExerciseIds && exercise.id !in recentExerciseIds
+                // Ensure currentExerciseIds doesn't contain empty strings
+                val cleanCurrentExerciseIds = currentExerciseIds.filter { it.isNotBlank() }
+                val availableExercises = userSelectedExercises.filter { exercise ->
+                    exercise.id !in cleanCurrentExerciseIds && exercise.id !in recentExerciseIds
                 }
+                
                 
                 _exercises.value = availableExercises
             } catch (e: Exception) {

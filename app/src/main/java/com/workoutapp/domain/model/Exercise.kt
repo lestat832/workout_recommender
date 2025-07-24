@@ -3,12 +3,11 @@ package com.workoutapp.domain.model
 data class Exercise(
     val id: String,
     val name: String,
-    val muscleGroup: MuscleGroup,
+    val muscleGroups: List<MuscleGroup>,
     val equipment: String,
     val category: WorkoutType,
     val imageUrl: String? = null,
     val instructions: List<String> = emptyList(),
-    val difficulty: Difficulty = Difficulty.BEGINNER,
     val isUserCreated: Boolean = false
 ) {
     companion object {
@@ -29,10 +28,4 @@ enum class MuscleGroup {
 enum class WorkoutType {
     PUSH,
     PULL
-}
-
-enum class Difficulty {
-    BEGINNER,
-    INTERMEDIATE,
-    EXPERT
 }

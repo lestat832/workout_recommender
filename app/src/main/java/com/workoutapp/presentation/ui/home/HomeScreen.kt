@@ -39,6 +39,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import com.workoutapp.R
 import androidx.compose.ui.draw.alpha
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,6 +57,10 @@ fun HomeScreen(
     val prefs = context.getSharedPreferences("debug_prefs", Context.MODE_PRIVATE)
     var testDateOffset by remember { mutableStateOf(prefs.getInt("date_offset", 0)) }
     
+    // Multi-tap counter for debug menu
+    var tapCount by remember { mutableStateOf(0) }
+    val coroutineScope = rememberCoroutineScope()
+    
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -61,7 +68,18 @@ fun HomeScreen(
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.clickable { showDebugMenu = !showDebugMenu }
+                        modifier = Modifier.clickable { 
+                            tapCount++
+                            if (tapCount >= 5) {
+                                showDebugMenu = !showDebugMenu
+                                tapCount = 0
+                            }
+                            // Reset tap count after 2 seconds
+                            coroutineScope.launch {
+                                delay(2000)
+                                tapCount = 0
+                            }
+                        }
                     ) {
                         Image(
                             painter = painterResource(id = R.drawable.ic_wolf_logo),

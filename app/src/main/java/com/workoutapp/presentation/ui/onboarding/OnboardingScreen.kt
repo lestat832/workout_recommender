@@ -93,9 +93,9 @@ fun OnboardingScreen(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Group exercises by muscle group and sort alphabetically within each group
+            // Group exercises by primary muscle group and sort alphabetically within each group
             val groupedExercises = exercises
-                .groupBy { it.muscleGroup }
+                .groupBy { it.muscleGroups.firstOrNull() ?: MuscleGroup.CHEST }
                 .mapValues { entry -> 
                     entry.value.sortedBy { it.name }
                 }
@@ -271,18 +271,9 @@ fun ExerciseSelectionCard(
                     style = MaterialTheme.typography.bodyLarge
                 )
                 Text(
-                    text = "${exercise.muscleGroup.name} • ${exercise.equipment}",
+                    text = "${exercise.muscleGroups.joinToString(", ") { it.name }} • ${exercise.equipment}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = exercise.difficulty.name,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = when (exercise.difficulty.name) {
-                        "BEGINNER" -> MaterialTheme.colorScheme.primary
-                        "INTERMEDIATE" -> MaterialTheme.colorScheme.secondary
-                        else -> MaterialTheme.colorScheme.error
-                    }
                 )
             }
             

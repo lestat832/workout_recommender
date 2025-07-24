@@ -79,7 +79,8 @@ fun WorkoutNavigation(
                 },
                 onNavigateToAddExercise = { workoutType, exerciseIds, onExerciseSelected ->
                     navController.currentBackStackEntry?.savedStateHandle?.set("onExerciseSelected", onExerciseSelected)
-                    navController.navigate("addExercise/${workoutType}/${exerciseIds.joinToString(",")}")
+                    val exerciseIdsParam = if (exerciseIds.isEmpty()) "none" else exerciseIds.joinToString(",")
+                    navController.navigate("addExercise/${workoutType}/${exerciseIdsParam}")
                 }
             )
         }
@@ -87,11 +88,12 @@ fun WorkoutNavigation(
         composable("addExercise/{workoutType}/{currentExerciseIds}") { backStackEntry ->
             val workoutType = backStackEntry.arguments?.getString("workoutType") ?: ""
             val exerciseIdsString = backStackEntry.arguments?.getString("currentExerciseIds") ?: ""
-            val currentExerciseIds = if (exerciseIdsString.isNotBlank()) {
-                exerciseIdsString.split(",")
+            val currentExerciseIds = if (exerciseIdsString.isNotBlank() && exerciseIdsString != "none") {
+                exerciseIdsString.split(",").filter { it.isNotBlank() }
             } else {
                 emptyList()
             }
+            
             
             val onExerciseSelected = navController.previousBackStackEntry?.savedStateHandle?.get<(com.workoutapp.domain.model.Exercise) -> Unit>("onExerciseSelected")
             

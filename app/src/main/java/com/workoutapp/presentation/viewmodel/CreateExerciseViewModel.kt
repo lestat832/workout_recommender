@@ -23,7 +23,7 @@ class CreateExerciseViewModel @Inject constructor(
     
     fun createExercise(
         name: String,
-        muscleGroup: MuscleGroup,
+        muscleGroups: List<MuscleGroup>,
         equipment: String
     ) {
         viewModelScope.launch {
@@ -37,19 +37,18 @@ class CreateExerciseViewModel @Inject constructor(
                     return@launch
                 }
                 
-                // Determine workout type based on muscle group
-                val workoutType = determineWorkoutType(muscleGroup)
+                // Determine workout type based on muscle groups
+                val workoutType = determineWorkoutType(muscleGroups)
                 
                 // Create the exercise
                 val exercise = Exercise(
                     id = Exercise.generateCustomId(),
                     name = name.trim(),
-                    muscleGroup = muscleGroup,
+                    muscleGroups = muscleGroups,
                     equipment = equipment,
                     category = workoutType,
                     imageUrl = null, // Will use wolf placeholder
                     instructions = emptyList(),
-                    difficulty = com.workoutapp.domain.model.Difficulty.BEGINNER,
                     isUserCreated = true
                 )
                 
@@ -63,11 +62,14 @@ class CreateExerciseViewModel @Inject constructor(
         }
     }
     
-    private fun determineWorkoutType(muscleGroup: MuscleGroup): WorkoutType {
-        return when (muscleGroup) {
-            MuscleGroup.CHEST, MuscleGroup.SHOULDER, MuscleGroup.TRICEP -> WorkoutType.PUSH
-            MuscleGroup.BACK, MuscleGroup.BICEP, MuscleGroup.LEGS -> WorkoutType.PULL
-            MuscleGroup.CORE -> WorkoutType.PUSH // Default core to push
+    private fun determineWorkoutType(muscleGroups: List<MuscleGroup>): WorkoutType {
+        // If any PUSH muscle is included, categorize as PUSH
+        val pushMuscles = setOf(MuscleGroup.CHEST, MuscleGroup.SHOULDER, MuscleGroup.TRICEP)
+        
+        return if (muscleGroups.any { it in pushMuscles }) {
+            WorkoutType.PUSH
+        } else {
+            WorkoutType.PULL
         }
     }
     

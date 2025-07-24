@@ -259,18 +259,18 @@ fun ExerciseCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Exercise Image
-            exercise.exercise.imageUrl?.let { url ->
-                AsyncImage(
-                    model = url,
-                    contentDescription = exercise.exercise.name,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .padding(bottom = 16.dp),
-                    contentScale = ContentScale.Fit
-                )
-            }
+            // Exercise Image - Removed for cleaner workout experience
+            // exercise.exercise.imageUrl?.let { url ->
+            //     AsyncImage(
+            //         model = url,
+            //         contentDescription = exercise.exercise.name,
+            //         modifier = Modifier
+            //             .fillMaxWidth()
+            //             .height(200.dp)
+            //             .padding(bottom = 16.dp),
+            //         contentScale = ContentScale.Fit
+            //     )
+            // }
             
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -284,7 +284,7 @@ fun ExerciseCard(
                     )
                     
                     Text(
-                        text = "${exercise.exercise.muscleGroup.name} • ${exercise.exercise.equipment}",
+                        text = "${exercise.exercise.muscleGroups.joinToString(", ") { it.name }} • ${exercise.exercise.equipment}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

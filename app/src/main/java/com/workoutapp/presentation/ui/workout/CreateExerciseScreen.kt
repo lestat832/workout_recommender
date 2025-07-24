@@ -31,7 +31,7 @@ fun CreateExerciseScreen(
     viewModel: CreateExerciseViewModel = hiltViewModel()
 ) {
     var exerciseName by remember { mutableStateOf("") }
-    var selectedMuscleGroup by remember { mutableStateOf<MuscleGroup?>(null) }
+    var selectedMuscleGroups by remember { mutableStateOf<Set<MuscleGroup>>(emptySet()) }
     var selectedEquipment by remember { mutableStateOf("None") }
     var showError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
@@ -109,9 +109,13 @@ fun CreateExerciseScreen(
                 )
                 items(upperBodyMuscles) { (muscle, label) ->
                     FilterChip(
-                        selected = selectedMuscleGroup == muscle,
+                        selected = muscle in selectedMuscleGroups,
                         onClick = { 
-                            selectedMuscleGroup = muscle
+                            selectedMuscleGroups = if (muscle in selectedMuscleGroups) {
+                                selectedMuscleGroups - muscle
+                            } else {
+                                selectedMuscleGroups + muscle
+                            }
                             showError = false
                         },
                         label = { Text(label) }
@@ -135,9 +139,13 @@ fun CreateExerciseScreen(
                 )
                 items(lowerBodyMuscles) { (muscle, label) ->
                     FilterChip(
-                        selected = selectedMuscleGroup == muscle,
+                        selected = muscle in selectedMuscleGroups,
                         onClick = { 
-                            selectedMuscleGroup = muscle
+                            selectedMuscleGroups = if (muscle in selectedMuscleGroups) {
+                                selectedMuscleGroups - muscle
+                            } else {
+                                selectedMuscleGroups + muscle
+                            }
                             showError = false
                         },
                         label = { Text(label) }
@@ -187,7 +195,7 @@ fun CreateExerciseScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     ExercisePreviewCard(
                         name = exerciseName.ifBlank { "Exercise Name" },
-                        muscleGroup = selectedMuscleGroup,
+                        muscleGroups = selectedMuscleGroups,
                         equipment = selectedEquipment
                     )
                 }
@@ -230,14 +238,14 @@ fun CreateExerciseScreen(
                                 errorMessage = "Please enter an exercise name"
                                 showError = true
                             }
-                            selectedMuscleGroup == null -> {
-                                errorMessage = "Please select a muscle group"
+                            selectedMuscleGroups.isEmpty() -> {
+                                errorMessage = "Please select at least one muscle group"
                                 showError = true
                             }
                             else -> {
                                 viewModel.createExercise(
                                     name = exerciseName.trim(),
-                                    muscleGroup = selectedMuscleGroup!!,
+                                    muscleGroups = selectedMuscleGroups.toList(),
                                     equipment = selectedEquipment
                                 )
                             }
@@ -263,7 +271,7 @@ fun CreateExerciseScreen(
 @Composable
 fun ExercisePreviewCard(
     name: String,
-    muscleGroup: MuscleGroup?,
+    muscleGroups: Set<MuscleGroup>,
     equipment: String
 ) {
     Row(
@@ -309,14 +317,13 @@ fun ExercisePreviewCard(
                 }
             }
             Text(
-                text = "${muscleGroup?.name ?: "Select Muscle"} • $equipment",
+                text = if (muscleGroups.isEmpty()) {
+                    "Select Muscles • $equipment"
+                } else {
+                    "${muscleGroups.joinToString(", ") { it.name }} • $equipment"
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = "BEGINNER",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary
             )
         }
     }

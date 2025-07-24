@@ -6,12 +6,11 @@ import kotlinx.serialization.Serializable
 data class Exercise(
     val id: String,
     val name: String,
-    val muscleGroup: MuscleGroup,
+    val muscleGroups: List<MuscleGroup>,
     val equipment: String,
     val category: WorkoutType,
     val imageUrl: String? = null,
-    val instructions: List<String> = emptyList(),
-    val difficulty: Difficulty = Difficulty.BEGINNER
+    val instructions: List<String> = emptyList()
 )
 
 @Serializable
@@ -29,11 +28,4 @@ enum class MuscleGroup {
 enum class WorkoutType {
     PUSH,
     PULL
-}
-
-@Serializable
-enum class Difficulty {
-    BEGINNER,
-    INTERMEDIATE,
-    EXPERT
 }

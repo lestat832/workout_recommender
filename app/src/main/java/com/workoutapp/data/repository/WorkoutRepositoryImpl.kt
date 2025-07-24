@@ -62,9 +62,12 @@ class WorkoutRepositoryImpl @Inject constructor(
                     Exercise(
                         id = it.id,
                         name = it.name,
-                        muscleGroup = it.muscleGroup,
+                        muscleGroups = it.muscleGroups,
                         equipment = it.equipment,
-                        category = it.category
+                        category = it.category,
+                        imageUrl = it.imageUrl,
+                        instructions = it.instructions,
+                        isUserCreated = it.isUserCreated
                     )
                 } ?: throw IllegalStateException("Exercise not found"),
                 sets = exerciseEntity.sets

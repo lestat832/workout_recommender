@@ -16,12 +16,12 @@ class InitializeDatabaseUseCase @Inject constructor(
                 com.workoutapp.domain.model.Exercise(
                     id = entity.id,
                     name = entity.name,
-                    muscleGroup = entity.muscleGroup,
+                    muscleGroups = entity.muscleGroups,
                     equipment = entity.equipment,
                     category = entity.category,
                     imageUrl = entity.imageUrl,
                     instructions = entity.instructions,
-                    difficulty = entity.difficulty
+                    isUserCreated = entity.isUserCreated
                 )
             }
             

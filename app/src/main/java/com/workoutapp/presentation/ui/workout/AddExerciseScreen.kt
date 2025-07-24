@@ -14,10 +14,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import coil.compose.AsyncImage
 import com.workoutapp.domain.model.Exercise
 import com.workoutapp.domain.model.MuscleGroup
@@ -39,8 +42,23 @@ fun AddExerciseScreen(
     // Track which muscle groups are expanded
     val expandedGroups = remember { mutableStateMapOf<MuscleGroup, Boolean>() }
     
+    // Reload exercises whenever parameters change, including when returning to screen
     LaunchedEffect(workoutType, currentExerciseIds) {
         viewModel.loadAvailableExercises(workoutType, currentExerciseIds)
+    }
+    
+    // Also reload when screen becomes visible (user returns from another screen)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.loadAvailableExercises(workoutType, currentExerciseIds)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
     
     Scaffold(
@@ -109,11 +127,18 @@ fun AddExerciseScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Group exercises by muscle group and sort alphabetically within each group
-                val groupedExercises = exercises
-                    .groupBy { it.muscleGroup }
+                // Create entries for each muscle group an exercise belongs to
+                val expandedExercises = exercises.flatMap { exercise ->
+                    exercise.muscleGroups.map { muscleGroup ->
+                        muscleGroup to exercise
+                    }
+                }
+                
+                // Group by muscle group and remove duplicates, then sort alphabetically
+                val groupedExercises = expandedExercises
+                    .groupBy { it.first }
                     .mapValues { entry -> 
-                        entry.value.sortedBy { it.name }
+                        entry.value.map { it.second }.distinct().sortedBy { it.name }
                     }
                 
                 // Display in the specified order
@@ -281,18 +306,9 @@ fun AddExerciseCard(
                     }
                 }
                 Text(
-                    text = "${exercise.muscleGroup.name} • ${exercise.equipment}",
+                    text = "${exercise.muscleGroups.joinToString(", ") { it.name }} • ${exercise.equipment}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = exercise.difficulty.name,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = when (exercise.difficulty.name) {
-                        "BEGINNER" -> MaterialTheme.colorScheme.primary
-                        "INTERMEDIATE" -> MaterialTheme.colorScheme.secondary
-                        else -> MaterialTheme.colorScheme.error
-                    }
                 )
             }
         }

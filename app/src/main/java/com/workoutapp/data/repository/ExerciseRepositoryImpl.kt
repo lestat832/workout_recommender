@@ -21,12 +21,11 @@ class ExerciseRepositoryImpl @Inject constructor(
                 Exercise(
                     id = entity.id,
                     name = entity.name,
-                    muscleGroup = entity.muscleGroup,
+                    muscleGroups = entity.muscleGroups,
                     equipment = entity.equipment,
                     category = entity.category,
                     imageUrl = entity.imageUrl,
                     instructions = entity.instructions,
-                    difficulty = entity.difficulty,
                     isUserCreated = entity.isUserCreated
                 )
             }
@@ -38,12 +37,11 @@ class ExerciseRepositoryImpl @Inject constructor(
             Exercise(
                 id = entity.id,
                 name = entity.name,
-                muscleGroup = entity.muscleGroup,
+                muscleGroups = entity.muscleGroups,
                 equipment = entity.equipment,
                 category = entity.category,
                 imageUrl = entity.imageUrl,
                 instructions = entity.instructions,
-                difficulty = entity.difficulty,
                 isUserCreated = entity.isUserCreated
             )
         }
@@ -54,12 +52,11 @@ class ExerciseRepositoryImpl @Inject constructor(
             Exercise(
                 id = entity.id,
                 name = entity.name,
-                muscleGroup = entity.muscleGroup,
+                muscleGroups = entity.muscleGroups,
                 equipment = entity.equipment,
                 category = entity.category,
                 imageUrl = entity.imageUrl,
                 instructions = entity.instructions,
-                difficulty = entity.difficulty,
                 isUserCreated = entity.isUserCreated
             )
         }
@@ -92,12 +89,11 @@ class ExerciseRepositoryImpl @Inject constructor(
             ExerciseEntity(
                 id = exercise.id,
                 name = exercise.name,
-                muscleGroup = exercise.muscleGroup,
+                muscleGroups = exercise.muscleGroups,
                 equipment = exercise.equipment,
                 category = exercise.category,
                 imageUrl = exercise.imageUrl,
                 instructions = exercise.instructions,
-                difficulty = exercise.difficulty,
                 isUserCreated = exercise.isUserCreated,
                 createdAt = if (exercise.isUserCreated) System.currentTimeMillis() else null
             )
@@ -109,12 +105,11 @@ class ExerciseRepositoryImpl @Inject constructor(
         val entity = ExerciseEntity(
             id = exercise.id,
             name = exercise.name,
-            muscleGroup = exercise.muscleGroup,
+            muscleGroups = exercise.muscleGroups,
             equipment = exercise.equipment,
             category = exercise.category,
             imageUrl = exercise.imageUrl,
             instructions = exercise.instructions,
-            difficulty = exercise.difficulty,
             isUserCreated = true,
             createdAt = System.currentTimeMillis()
         )
@@ -126,12 +121,11 @@ class ExerciseRepositoryImpl @Inject constructor(
             Exercise(
                 id = entity.id,
                 name = entity.name,
-                muscleGroup = entity.muscleGroup,
+                muscleGroups = entity.muscleGroups,
                 equipment = entity.equipment,
                 category = entity.category,
                 imageUrl = entity.imageUrl,
                 instructions = entity.instructions,
-                difficulty = entity.difficulty,
                 isUserCreated = entity.isUserCreated
             )
         }
@@ -143,12 +137,11 @@ class ExerciseRepositoryImpl @Inject constructor(
                 Exercise(
                     id = entity.id,
                     name = entity.name,
-                    muscleGroup = entity.muscleGroup,
+                    muscleGroups = entity.muscleGroups,
                     equipment = entity.equipment,
                     category = entity.category,
                     imageUrl = entity.imageUrl,
                     instructions = entity.instructions,
-                    difficulty = entity.difficulty,
                     isUserCreated = entity.isUserCreated
                 )
             }

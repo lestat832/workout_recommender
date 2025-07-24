@@ -2,6 +2,50 @@
 
 All notable changes to the Workout Tracker app will be documented in this file.
 
+## [Unreleased] - 2025-01-24
+
+### Added
+- **Multiple Muscle Group Selection**: Custom exercises can now target multiple muscle groups
+  - Select chest AND legs, or any combination of muscle groups
+  - Custom exercises appear in ALL selected muscle group sections
+  - Enhanced UI with multi-selection FilterChips
+- **Show All Exercises**: Removed workout type filtering in Add Exercise screen
+  - Users can add ANY exercise to their workout regardless of Push/Pull categorization
+  - Maintains suggested exercises but allows full flexibility
+
+### Changed
+- **Exercise Data Model**: Updated from single `muscleGroup` to `List<MuscleGroup>`
+  - Database migration from v4 to v5 with proper schema transformation
+  - Added MuscleGroupListConverter for Room database type conversion
+  - Updated all repository implementations and ViewModels
+- **Remove Difficulty System**: Eliminated all references to exercise difficulty
+  - Removed Difficulty enum from both app and shared modules
+  - Cleaned up UI to remove beginner/intermediate/advanced labels
+  - Simplified exercise creation and display
+- **Enhanced Exercise Display**: Multi-muscle group exercises show in relevant sections
+  - Uses flatMap to expand exercises across muscle groups
+  - Maintains distinct exercise instances per muscle group section
+  - Improved grouping logic for better organization
+
+### Fixed
+- **Exercise Filtering Bug**: Fixed issue where exercises already in workout still appeared in Add Exercise screen
+  - Fixed navigation parameter handling for empty exercise lists
+  - Improved URL construction to handle edge cases
+  - Added robust filtering logic to prevent duplicate exercise display
+- **Compilation Errors**: Resolved all model transformation issues
+  - Updated GenerateWorkoutUseCase for new muscle group structure
+  - Fixed InitializeDatabaseUseCase parameter mapping
+  - Updated WorkoutScreen muscle group display
+  - Fixed ExerciseData.kt type mismatches
+  - Corrected WorkoutRepositoryImpl constructor calls
+
+### Technical
+- **Database Migration**: MIGRATION_4_5 transforms single muscle group to list
+- **Type Converters**: New MuscleGroupListConverter for Room database
+- **Navigation Improvements**: Better parameter handling and edge case management
+- **State Management**: Enhanced lifecycle observers for screen refresh
+- **Data Consistency**: Comprehensive model updates across all layers
+
 ## [Unreleased] - 2025-01-21
 
 ### Added

@@ -1,6 +1,7 @@
 package com.workoutapp.data.database.converters
 
 import androidx.room.TypeConverter
+import com.workoutapp.domain.model.MuscleGroup
 import com.workoutapp.domain.model.Set
 import java.util.Date
 
@@ -61,6 +62,28 @@ class StringListConverter {
             emptyList()
         } else {
             data.split("|")
+        }
+    }
+}
+
+class MuscleGroupListConverter {
+    @TypeConverter
+    fun fromMuscleGroupList(muscleGroups: List<MuscleGroup>): String {
+        return muscleGroups.joinToString(",") { it.name }
+    }
+
+    @TypeConverter
+    fun toMuscleGroupList(data: String): List<MuscleGroup> {
+        return if (data.isEmpty()) {
+            emptyList()
+        } else {
+            data.split(",").mapNotNull { name ->
+                try {
+                    MuscleGroup.valueOf(name)
+                } catch (e: IllegalArgumentException) {
+                    null
+                }
+            }
         }
     }
 }

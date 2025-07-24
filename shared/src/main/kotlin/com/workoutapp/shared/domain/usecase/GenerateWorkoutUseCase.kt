@@ -27,8 +27,8 @@ class GenerateWorkoutUseCase(
         val availableExercises = exerciseRepository.getUserActiveExercisesByType(workoutType)
             .filterNot { it.id in recentExerciseIds }
         
-        // Group by muscle group
-        val exercisesByMuscle = availableExercises.groupBy { it.muscleGroup }
+        // Group by primary muscle group
+        val exercisesByMuscle = availableExercises.groupBy { it.muscleGroups.firstOrNull() ?: MuscleGroup.CHEST }
         
         // Select one exercise per muscle group
         val targetMuscleGroups = if (workoutType == WorkoutType.PUSH) {

@@ -1,6 +1,44 @@
 # Changelog
 
-All notable changes to the Workout Tracker app will be documented in this file.
+All notable changes to the Fortis Lupus app will be documented in this file.
+
+## [Unreleased] - 2025-08-14
+
+### Added
+- **Strong App Import Feature**: Import workout history from Strong app CSV exports
+  - Created comprehensive CSV parser for Strong's semicolon-delimited format
+  - Exercise mapping system matches 50+ Strong exercises to existing exercises
+  - Automatic creation of custom exercises for unmapped Strong exercises
+  - Manual import via "Import Marc's Workouts (133)" button in debug menu
+  - Weight conversion from kg to lbs with proper rounding
+  - Supports multiple CSV imports with import status tracking
+  - Import result dialog shows statistics (workouts, exercises, errors)
+- **Import Debug Infrastructure**: Development testing with embedded CSV
+  - 133 real workouts from Dec 2023 to Aug 2025 embedded in app
+  - SharedPreferences tracking to prevent duplicate imports
+  - BuildConfig flag for debug/release build differentiation
+  - Manual import only - no automatic import on app launch for clean FTUE
+
+### Changed
+- **Workout Display Limit**: Increased from 5 to 50 recent workouts in home screen
+- **Weight Display**: All weights now show as whole numbers (135 lbs vs 134.99973)
+- **Shuffle Logic**: Fixed to filter by muscle groups instead of workout type
+- **Import Architecture**: Separated manual import from automatic import logic
+  - Added `importManually()` method to bypass auto-import checks
+  - Ensures clean first-time user experience with empty app state
+
+### Fixed
+- **Weight Decimal Display**: Fixed persistent decimal display in workout history
+- **Shuffle Button**: Now correctly shows exercises from same muscle group
+- **Auto-Import Issue**: Prevented unwanted automatic import on app launch
+- **Exercise Mapping**: Fixed compilation errors with entity transformations
+
+### Technical
+- **New Use Cases**: ImportWorkoutUseCase, ImportDebugDataUseCase
+- **CSV Parser**: StrongCsvParser with semicolon delimiter support
+- **Exercise Mapper**: Maps Strong exercise names to app exercises
+- **Database Updates**: Support for bulk workout and exercise imports
+- **Import State Management**: Loading, Success, Error states with UI feedback
 
 ## [Unreleased] - 2025-01-24
 

@@ -11,6 +11,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.util.*
 import javax.inject.Inject
@@ -171,23 +172,30 @@ class WorkoutViewModel @Inject constructor(
     fun shuffleExercise(exerciseId: String) {
         viewModelScope.launch {
             val currentExercise = _uiState.value.exercises.find { it.id == exerciseId } ?: return@launch
-            val workoutType = currentWorkout?.type ?: return@launch
+            val currentMuscleGroups = currentExercise.exercise.muscleGroups
             
-            // Get all selected exercises of the same type
-            val selectedExercises = exerciseRepository.getUserActiveExercisesByType(workoutType)
+            // Get all exercises that target the same muscle groups
+            val allExercises = exerciseRepository.getAllExercises().firstOrNull() ?: emptyList()
+            val activeExerciseIds = exerciseRepository.getActiveUserExercises().firstOrNull() ?: emptyList()
+            
+            // Filter exercises that share at least one muscle group with current exercise
+            val sameMuscleFroupExercises = allExercises.filter { exercise ->
+                exercise.id in activeExerciseIds && 
+                exercise.muscleGroups.any { it in currentMuscleGroups }
+            }
             
             // Get exercises done in the last week
             val recentExerciseIds = workoutRepository.getExerciseIdsFromLastWeek()
             
             // Filter out current exercises and recent exercises
             val currentExerciseIds = _uiState.value.exercises.map { it.exercise.id }
-            val availableExercises = selectedExercises.filter { exercise ->
+            val availableExercises = sameMuscleFroupExercises.filter { exercise ->
                 exercise.id !in currentExerciseIds && exercise.id !in recentExerciseIds
             }
             
             if (availableExercises.isEmpty()) {
                 // If no alternatives, try without recent exercise filter
-                val lessRestrictiveExercises = selectedExercises.filter { exercise ->
+                val lessRestrictiveExercises = sameMuscleFroupExercises.filter { exercise ->
                     exercise.id !in currentExerciseIds
                 }
                 

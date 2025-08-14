@@ -30,10 +30,16 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.workoutapp.domain.model.Workout
 import com.workoutapp.domain.model.WorkoutType
 import com.workoutapp.presentation.viewmodel.HomeViewModel
+import com.workoutapp.presentation.viewmodel.ImportState
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.ui.platform.LocalContext
 import android.content.Context
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.LaunchedEffect
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -51,15 +57,47 @@ fun HomeScreen(
 ) {
     val lastWorkout by viewModel.lastWorkout.collectAsState()
     val recentWorkouts by viewModel.recentWorkouts.collectAsState()
+    val importState by viewModel.importState.collectAsState()
     
     var showDebugMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("debug_prefs", Context.MODE_PRIVATE)
     var testDateOffset by remember { mutableStateOf(prefs.getInt("date_offset", 0)) }
+    var showImportDialog by remember { mutableStateOf(false) }
     
     // Multi-tap counter for debug menu
     var tapCount by remember { mutableStateOf(0) }
     val coroutineScope = rememberCoroutineScope()
+    
+    // File picker for CSV import
+    val csvFilePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+        onResult = { uri ->
+            uri?.let {
+                try {
+                    val inputStream = context.contentResolver.openInputStream(uri)
+                    val reader = BufferedReader(InputStreamReader(inputStream))
+                    val csvContent = reader.use { it.readText() }
+                    viewModel.importWorkouts(csvContent)
+                } catch (e: Exception) {
+                    // Handle error
+                }
+            }
+        }
+    )
+    
+    // Handle import state changes
+    LaunchedEffect(importState) {
+        when (importState) {
+            is ImportState.Success -> {
+                showImportDialog = true
+            }
+            is ImportState.Error -> {
+                showImportDialog = true
+            }
+            else -> {}
+        }
+    }
     
     Scaffold(
         topBar = {
@@ -168,6 +206,127 @@ fun HomeScreen(
                                 }
                             }
                         }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Divider()
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        // Import Marc's Workouts - Primary Action
+                        Button(
+                            onClick = {
+                                viewModel.importMarcWorkouts()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = importState !is ImportState.Loading,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "Import",
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                            Text(
+                                if (importState is ImportState.Loading) 
+                                    "Importing Marc's Workouts..." 
+                                else 
+                                    "Import Marc's Workouts (133)"
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Divider()
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        // Import Strong Data section
+                        Text(
+                            "Import Other Strong Data",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        OutlinedButton(
+                            onClick = {
+                                csvFilePicker.launch("*/*")
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = importState !is ImportState.Loading
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "Import",
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                            Text(
+                                if (importState is ImportState.Loading) 
+                                    "Importing..." 
+                                else 
+                                    "Select CSV File to Import"
+                            )
+                        }
+                        
+                        // Show import status
+                        when (importState) {
+                            is ImportState.Loading -> {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                LinearProgressIndicator(
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            else -> {}
+                        }
+                        
+                        // Auto-import status and reset
+                        if (com.workoutapp.BuildConfig.ENABLE_DEBUG_DATA_IMPORT) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Divider()
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            Text(
+                                "Auto-Import Status",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            val isImported = viewModel.isDebugDataImported()
+                            Text(
+                                if (isImported) 
+                                    "✓ Debug data has been auto-imported (132 workouts)" 
+                                else 
+                                    "Debug data not yet imported",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        viewModel.resetDebugDataImport()
+                                    },
+                                    enabled = isImported
+                                ) {
+                                    Text("Reset Import Flag")
+                                }
+                                
+                                OutlinedButton(
+                                    onClick = {
+                                        viewModel.reimportDebugData()
+                                    }
+                                ) {
+                                    Text("Force Re-import")
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -224,6 +383,68 @@ fun HomeScreen(
                 }
             }
         }
+    }
+    
+    // Import Result Dialog
+    if (showImportDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showImportDialog = false
+                viewModel.resetImportState()
+            },
+            title = {
+                Text(
+                    text = when (importState) {
+                        is ImportState.Success -> "Import Successful"
+                        is ImportState.Error -> "Import Failed"
+                        else -> "Import Status"
+                    }
+                )
+            },
+            text = {
+                when (val state = importState) {
+                    is ImportState.Success -> {
+                        Column {
+                            Text("Successfully imported your Strong workout data!")
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("• Total workouts: ${state.result.totalWorkouts}")
+                            Text("• Imported workouts: ${state.result.importedWorkouts}")
+                            Text("• New exercises created: ${state.result.newExercises}")
+                            Text("• Mapped exercises: ${state.result.mappedExercises}")
+                            
+                            if (state.result.errors.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "Some issues occurred:",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                state.result.errors.take(3).forEach { error ->
+                                    Text(
+                                        "• $error",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    is ImportState.Error -> {
+                        Text(state.message)
+                    }
+                    else -> {}
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showImportDialog = false
+                        viewModel.resetImportState()
+                    }
+                ) {
+                    Text("OK")
+                }
+            }
+        )
     }
 }
 
@@ -424,7 +645,7 @@ fun ExerciseDetailRow(workoutExercise: com.workoutapp.domain.model.WorkoutExerci
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "${set.weight} lbs × ${set.reps} reps",
+                        text = "${set.weight.toInt()} lbs × ${set.reps} reps",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }

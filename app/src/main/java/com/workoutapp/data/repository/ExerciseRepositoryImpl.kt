@@ -1,19 +1,29 @@
 package com.workoutapp.data.repository
 
+import android.content.Context
 import com.workoutapp.data.database.dao.ExerciseDao
 import com.workoutapp.data.database.entities.ExerciseEntity
 import com.workoutapp.data.database.entities.UserExerciseEntity
+import com.workoutapp.data.mapper.ExerciseMapper
+import com.workoutapp.data.mapper.ExerciseMapper.toEntity
+import com.workoutapp.data.remote.ExerciseDbService
 import com.workoutapp.domain.model.Exercise
 import com.workoutapp.domain.model.WorkoutType
 import com.workoutapp.domain.repository.ExerciseRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import java.util.UUID
 import javax.inject.Inject
 
 class ExerciseRepositoryImpl @Inject constructor(
-    private val exerciseDao: ExerciseDao
+    private val exerciseDao: ExerciseDao,
+    @ApplicationContext private val context: Context
 ) : ExerciseRepository {
+
+    private val exerciseDbService by lazy { ExerciseDbService(context) }
     
     override fun getAllExercises(): Flow<List<Exercise>> {
         return exerciseDao.getAllExercises().map { entities ->
@@ -145,6 +155,37 @@ class ExerciseRepositoryImpl @Inject constructor(
                     isUserCreated = entity.isUserCreated
                 )
             }
+        }
+    }
+
+    /**
+     * Syncs exercises from ExerciseDB API
+     * This will fetch 873+ exercises from the free exercise database
+     *
+     * @return Result indicating success or failure
+     */
+    suspend fun syncExercisesFromApi(): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            // Fetch from API or bundled assets
+            val result = exerciseDbService.fetchAllExercises()
+
+            if (result.isFailure) {
+                return@withContext Result.failure(
+                    result.exceptionOrNull() ?: Exception("Unknown error")
+                )
+            }
+
+            val exercisesJson = result.getOrNull() ?: emptyList()
+
+            // Convert to entities
+            val entities = exercisesJson.map { it.toEntity() }
+
+            // Insert into database (will replace existing on conflict)
+            exerciseDao.insertExercises(entities)
+
+            Result.success(entities.size)
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 }

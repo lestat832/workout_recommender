@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.21"
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
 }
@@ -20,6 +21,13 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        // Strava API credentials from local.properties
+        val stravaClientId = project.findProperty("STRAVA_CLIENT_ID")?.toString() ?: ""
+        val stravaClientSecret = project.findProperty("STRAVA_CLIENT_SECRET")?.toString() ?: ""
+
+        buildConfigField("String", "STRAVA_CLIENT_ID", "\"$stravaClientId\"")
+        buildConfigField("String", "STRAVA_CLIENT_SECRET", "\"$stravaClientSecret\"")
     }
 
     buildTypes {
@@ -87,7 +95,10 @@ dependencies {
     
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    
+
+    // Kotlinx Serialization (for JSON parsing)
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
+
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.5.0")
     

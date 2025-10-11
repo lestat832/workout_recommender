@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -53,13 +54,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
-    onStartWorkout: () -> Unit
+    stravaAuthViewModel: com.workoutapp.presentation.settings.StravaAuthViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
+    onStartWorkout: () -> Unit,
+    onNavigateToSettings: () -> Unit = {}
 ) {
     val lastWorkout by viewModel.lastWorkout.collectAsState()
     val recentWorkouts by viewModel.recentWorkouts.collectAsState()
     val importState by viewModel.importState.collectAsState()
-    
+    val stravaAuthState by stravaAuthViewModel.authState.collectAsState()
+
     var showDebugMenu by remember { mutableStateOf(false) }
+    var showSettingsMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("debug_prefs", Context.MODE_PRIVATE)
     var testDateOffset by remember { mutableStateOf(prefs.getInt("date_offset", 0)) }
@@ -102,11 +107,11 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { 
+                title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.clickable { 
+                        modifier = Modifier.clickable {
                             tapCount++
                             if (tapCount >= 5) {
                                 showDebugMenu = !showDebugMenu
@@ -134,6 +139,62 @@ fun HomeScreen(
                                 letterSpacing = 2.sp
                             )
                         )
+                    }
+                },
+                actions = {
+                    // Strava connection status indicator
+                    if (stravaAuthState?.isAuthenticated() == true) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = MaterialTheme.shapes.small,
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = "🟠",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Text(
+                                    text = "Strava",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                    }
+
+                    IconButton(onClick = { showSettingsMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings"
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showSettingsMenu,
+                        onDismissRequest = { showSettingsMenu = false }
+                    ) {
+                        if (stravaAuthState?.isAuthenticated() == true) {
+                            DropdownMenuItem(
+                                text = { Text("Disconnect Strava") },
+                                onClick = {
+                                    showSettingsMenu = false
+                                    stravaAuthViewModel.disconnect()
+                                }
+                            )
+                        } else {
+                            DropdownMenuItem(
+                                text = { Text("Connect to Strava") },
+                                onClick = {
+                                    showSettingsMenu = false
+                                    onNavigateToSettings()
+                                }
+                            )
+                        }
                     }
                 }
             )

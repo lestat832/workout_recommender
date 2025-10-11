@@ -22,9 +22,10 @@ object StravaConfig {
         get() = BuildConfig.STRAVA_CLIENT_SECRET
 
     /**
-     * OAuth redirect URI (deep link)
+     * OAuth redirect URI (using localhost as required by Strava)
+     * The actual deep link is handled in AndroidManifest
      */
-    const val REDIRECT_URI = "workoutapp://strava-oauth"
+    const val REDIRECT_URI = "http://localhost/strava-oauth"
 
     /**
      * OAuth scopes required

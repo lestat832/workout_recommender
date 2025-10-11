@@ -27,8 +27,22 @@
         
         <activity
             android:name=".presentation.MainActivity"
-            android:exported="false"
-            android:theme="@style/Theme.WorkoutApp" />
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.WorkoutApp">
+
+            <!-- Strava OAuth callback -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:scheme="http"
+                    android:host="localhost"
+                    android:path="/strava-oauth" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>

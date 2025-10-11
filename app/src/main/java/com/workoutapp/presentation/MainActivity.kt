@@ -1,5 +1,6 @@
 package com.workoutapp.presentation
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -20,33 +22,67 @@ import com.workoutapp.presentation.ui.theme.WorkoutAppTheme
 import com.workoutapp.presentation.ui.workout.WorkoutScreen
 import com.workoutapp.presentation.ui.workout.AddExerciseScreen
 import com.workoutapp.presentation.ui.workout.CreateExerciseScreen
+import com.workoutapp.presentation.settings.StravaAuthViewModel
 import com.workoutapp.presentation.viewmodel.MainViewModel
 import dagger.hilt.android.AndroidEntryPoint
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private val intentData = mutableStateOf<Intent?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
+        // Handle initial intent
+        intentData.value = intent
+
         setContent {
             WorkoutAppTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    WorkoutNavigation()
+                    WorkoutNavigation(intentState = intentData)
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        // Update the state to trigger recomposition
+        intentData.value = intent
     }
 }
 
 @Composable
 fun WorkoutNavigation(
-    mainViewModel: MainViewModel = hiltViewModel()
+    intentState: MutableState<Intent?>,
+    mainViewModel: MainViewModel = hiltViewModel(),
+    stravaAuthViewModel: StravaAuthViewModel = hiltViewModel()
 ) {
     val navController = rememberNavController()
     val isOnboardingComplete by mainViewModel.isOnboardingComplete.collectAsState(initial = false)
+    val currentIntent by intentState
+
+    // Handle Strava OAuth callback
+    LaunchedEffect(currentIntent) {
+        currentIntent?.data?.let { uri ->
+            if (uri.scheme == "http" && uri.host == "localhost" && uri.path == "/strava-oauth") {
+                val code = uri.getQueryParameter("code")
+                if (code != null) {
+                    stravaAuthViewModel.handleAuthCallback(code)
+                    // Navigate back to home after successful auth
+                    navController.navigate("home") {
+                        popUpTo("home") { inclusive = false }
+                    }
+                }
+            }
+        }
+    }
     
     NavHost(
         navController = navController,
@@ -66,6 +102,18 @@ fun WorkoutNavigation(
             HomeScreen(
                 onStartWorkout = {
                     navController.navigate("workout")
+                },
+                onNavigateToSettings = {
+                    navController.navigate("settings")
+                }
+            )
+        }
+
+        composable("settings") {
+            com.workoutapp.presentation.settings.StravaAuthScreen(
+                viewModel = stravaAuthViewModel,
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }

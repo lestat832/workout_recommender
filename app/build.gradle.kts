@@ -1,9 +1,19 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.21"
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
+}
+
+// Load local.properties
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    FileInputStream(localPropertiesFile).use { localProperties.load(it) }
 }
 
 android {
@@ -23,8 +33,8 @@ android {
         }
 
         // Strava API credentials from local.properties
-        val stravaClientId = project.findProperty("STRAVA_CLIENT_ID")?.toString() ?: ""
-        val stravaClientSecret = project.findProperty("STRAVA_CLIENT_SECRET")?.toString() ?: ""
+        val stravaClientId = localProperties.getProperty("STRAVA_CLIENT_ID") ?: ""
+        val stravaClientSecret = localProperties.getProperty("STRAVA_CLIENT_SECRET") ?: ""
 
         buildConfigField("String", "STRAVA_CLIENT_ID", "\"$stravaClientId\"")
         buildConfigField("String", "STRAVA_CLIENT_SECRET", "\"$stravaClientSecret\"")
@@ -104,7 +114,15 @@ dependencies {
     
     // DataStore for preferences
     implementation("androidx.datastore:datastore-preferences:1.0.0")
-    
+
+    // Retrofit for Strava API
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    // WorkManager for background sync
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

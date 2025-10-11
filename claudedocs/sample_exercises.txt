@@ -1,0 +1,96 @@
+### PUSH - CHEST Exercises
+- Alternating Floor Press (kettlebells)
+  Primary: ['chest']
+  Secondary: ['abdominals', 'shoulders', 'triceps']
+  Force: push, Level: beginner
+
+- Around The Worlds (dumbbell)
+  Primary: ['chest']
+  Secondary: ['shoulders']
+  Force: push, Level: intermediate
+
+- Barbell Bench Press - Medium Grip (barbell)
+  Primary: ['chest']
+  Secondary: ['shoulders', 'triceps']
+  Force: push, Level: beginner
+
+### PUSH - SHOULDERS Exercises
+- Alternating Cable Shoulder Press (cable)
+  Primary: ['shoulders']
+  Secondary: ['triceps']
+  Force: push, Level: beginner
+
+- Alternating Deltoid Raise (dumbbell)
+  Primary: ['shoulders']
+  Secondary: []
+  Force: push, Level: beginner
+
+- Alternating Kettlebell Press (kettlebells)
+  Primary: ['shoulders']
+  Secondary: ['triceps']
+  Force: push, Level: intermediate
+
+### PUSH - LEGS Exercises
+- Alternate Leg Diagonal Bound (None)
+  Primary: ['quadriceps']
+  Secondary: ['abductors', 'adductors', 'calves', 'glutes', 'hamstrings']
+  Force: push, Level: beginner
+
+- Barbell Full Squat (barbell)
+  Primary: ['quadriceps']
+  Secondary: ['calves', 'glutes', 'hamstrings', 'lower back']
+  Force: push, Level: intermediate
+
+- Barbell Hack Squat (barbell)
+  Primary: ['quadriceps']
+  Secondary: ['calves', 'forearms', 'hamstrings']
+  Force: push, Level: intermediate
+
+### PULL - BACK Exercises
+- Alternating Kettlebell Row (kettlebells)
+  Primary: ['middle back']
+  Secondary: ['biceps', 'lats']
+  Force: pull, Level: intermediate
+
+- Alternating Renegade Row (kettlebells)
+  Primary: ['middle back']
+  Secondary: ['abdominals', 'biceps', 'chest', 'lats', 'triceps']
+  Force: pull, Level: expert
+
+- Bent-Arm Barbell Pullover (barbell)
+  Primary: ['lats']
+  Secondary: ['chest', 'lats', 'shoulders', 'triceps']
+  Force: pull, Level: intermediate
+
+### PULL - BICEPS Exercises
+- Alternate Hammer Curl (dumbbell)
+  Primary: ['biceps']
+  Secondary: ['forearms']
+  Force: pull, Level: beginner
+
+- Alternate Incline Dumbbell Curl (dumbbell)
+  Primary: ['biceps']
+  Secondary: ['forearms']
+  Force: pull, Level: beginner
+
+- Barbell Curl (barbell)
+  Primary: ['biceps']
+  Secondary: ['forearms']
+  Force: pull, Level: beginner
+
+### PULL - CORE Exercises
+- 3/4 Sit-Up (body only)
+  Primary: ['abdominals']
+  Secondary: []
+  Force: pull, Level: beginner
+
+- Ab Crunch Machine (machine)
+  Primary: ['abdominals']
+  Secondary: []
+  Force: pull, Level: intermediate
+
+- Ab Roller (other)
+  Primary: ['abdominals']
+  Secondary: ['shoulders']
+  Force: pull, Level: intermediate
+

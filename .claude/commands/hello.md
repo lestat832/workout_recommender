@@ -1,6 +1,7 @@
 ---
+name: hello
 description: Start session with friendly greeting and context load
-tags: [session, workflow, gitignored]
+tags: [session, workflow, gitignored, project]
 ---
 
 # Start Session Protocol

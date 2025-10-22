@@ -1,6 +1,7 @@
 ---
+name: bye
 description: End session with context optimization and save
-tags: [session, workflow, gitignored]
+tags: [session, workflow, gitignored, project]
 ---
 
 # End Session Protocol

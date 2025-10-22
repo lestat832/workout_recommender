@@ -29,13 +29,13 @@
 - [x] Add visual connection indicator
 - [x] Test OAuth end-to-end ✅ **WORKING**
 
-#### ⏳ Data Mapping & Formatting
-- [ ] Create WorkoutToStravaMapper
-- [ ] Create StravaDescriptionFormatter (Format A)
-- [ ] Calculate total volume
-- [ ] Calculate workout duration
-- [ ] Map workout type to Strava activity type
-- [ ] Test formatting with sample workouts
+#### ✅ Data Mapping & Formatting
+- [x] Create WorkoutToStravaMapper
+- [x] Create StravaDescriptionFormatter (Format A)
+- [x] Calculate total volume
+- [x] Calculate workout duration
+- [x] Map workout type to Strava activity type
+- [x] Test formatting with sample workouts
 
 #### Sync Worker & Queue
 - [ ] Create StravaSyncWorker (WorkManager)
@@ -70,10 +70,10 @@
 
 ## 🎯 Implementation Overview
 
-**Current Status:** 🟢 Phase 1 - Data Mapping & Formatting (In Progress)
+**Current Status:** 🟢 Phase 1 - Sync Worker & Queue (Ready to Start)
 
 **Phase Breakdown:**
-- **Phase 1 (MVP):** Core sync functionality - OAuth ✅ | Data Mapping ⏳ | Sync Worker ⏺️
+- **Phase 1 (MVP):** Core sync functionality - OAuth ✅ | Data Mapping ✅ | Sync Worker ⏳
 - **Phase 2 (Enhanced UX):** Status badges, edit detection, manual retry
 - **Phase 3 (Additional Features):** Summary images, sync history, offline handling
 

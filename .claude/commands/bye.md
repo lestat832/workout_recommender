@@ -9,9 +9,8 @@ You are ending a work session. Follow these steps in order:
 
 ## 1. Optimize Context
 - Review current todos and mark any completed items
-- Create/update session summary in `claudedocs/` directory if significant work was done
-- Document any key decisions, issues resolved, or important context
-- Update relevant roadmap/progress documents with checkboxes
+- Summarize the session's work and key decisions
+- Document any important context that should persist
 
 ## 2. Commit and Push Changes
 If there are any changes in the git working directory:
@@ -37,8 +36,14 @@ EOF
 )" && git push
 ```
 
-## 3. Save Session
-Execute the `/sc:save` command to persist session state
+## 3. Save Session Memory
+Use Serena MCP to save session state:
+- `mcp__serena__write_memory` with memory name like `session-YYYY-MM-DD-[brief-description]`
+- Include in memory:
+  - What was accomplished
+  - Current state/progress
+  - Next steps planned
+  - Important decisions or context
 
 ## 4. Friendly Goodbye
 Provide a warm, encouraging sign-off message that includes:
@@ -52,6 +57,8 @@ Provide a warm, encouraging sign-off message that includes:
 
 ✅ Completed:
 - [key accomplishments]
+
+💾 Session saved as: session-YYYY-MM-DD-[description]
 
 ⏭️  Next session:
 - [next tasks]

@@ -2,6 +2,7 @@ package com.workoutapp.domain.mapper
 
 import com.workoutapp.domain.formatter.StravaDescriptionFormatter
 import com.workoutapp.domain.model.*
+import com.workoutapp.domain.model.Set as WorkoutSet
 import java.util.*
 
 /**
@@ -80,9 +81,9 @@ object StravaMapperTest {
                 workoutId = "w1",
                 exercise = benchPress,
                 sets = listOf(
-                    Set(reps = 10, weight = 135f, completed = true),
-                    Set(reps = 10, weight = 135f, completed = true),
-                    Set(reps = 10, weight = 135f, completed = true)
+                    WorkoutSet(reps = 10, weight = 135f, completed = true),
+                    WorkoutSet(reps = 10, weight = 135f, completed = true),
+                    WorkoutSet(reps = 10, weight = 135f, completed = true)
                 )
             ),
             WorkoutExercise(
@@ -90,9 +91,9 @@ object StravaMapperTest {
                 workoutId = "w1",
                 exercise = inclinePress,
                 sets = listOf(
-                    Set(reps = 12, weight = 50f, completed = true),
-                    Set(reps = 12, weight = 50f, completed = true),
-                    Set(reps = 12, weight = 50f, completed = true)
+                    WorkoutSet(reps = 12, weight = 50f, completed = true),
+                    WorkoutSet(reps = 12, weight = 50f, completed = true),
+                    WorkoutSet(reps = 12, weight = 50f, completed = true)
                 )
             ),
             WorkoutExercise(
@@ -100,10 +101,10 @@ object StravaMapperTest {
                 workoutId = "w1",
                 exercise = squats,
                 sets = listOf(
-                    Set(reps = 8, weight = 185f, completed = true),
-                    Set(reps = 8, weight = 185f, completed = true),
-                    Set(reps = 8, weight = 185f, completed = true),
-                    Set(reps = 8, weight = 185f, completed = true)
+                    WorkoutSet(reps = 8, weight = 185f, completed = true),
+                    WorkoutSet(reps = 8, weight = 185f, completed = true),
+                    WorkoutSet(reps = 8, weight = 185f, completed = true),
+                    WorkoutSet(reps = 8, weight = 185f, completed = true)
                 )
             ),
             WorkoutExercise(
@@ -111,9 +112,9 @@ object StravaMapperTest {
                 workoutId = "w1",
                 exercise = legPress,
                 sets = listOf(
-                    Set(reps = 15, weight = 270f, completed = true),
-                    Set(reps = 15, weight = 270f, completed = true),
-                    Set(reps = 15, weight = 270f, completed = true)
+                    WorkoutSet(reps = 15, weight = 270f, completed = true),
+                    WorkoutSet(reps = 15, weight = 270f, completed = true),
+                    WorkoutSet(reps = 15, weight = 270f, completed = true)
                 )
             )
         )
@@ -222,8 +223,8 @@ object StravaMapperTest {
                         isUserCreated = false
                     ),
                     sets = listOf(
-                        Set(reps = 10, weight = 0f, completed = false),
-                        Set(reps = 10, weight = 0f, completed = false)
+                        WorkoutSet(reps = 10, weight = 0f, completed = false),
+                        WorkoutSet(reps = 10, weight = 0f, completed = false)
                     )
                 )
             )
@@ -253,10 +254,10 @@ object StravaMapperTest {
                         isUserCreated = false
                     ),
                     sets = listOf(
-                        Set(reps = 10, weight = 135f, completed = true),
-                        Set(reps = 8, weight = 155f, completed = true),
-                        Set(reps = 6, weight = 175f, completed = true),
-                        Set(reps = 4, weight = 185f, completed = true)
+                        WorkoutSet(reps = 10, weight = 135f, completed = true),
+                        WorkoutSet(reps = 8, weight = 155f, completed = true),
+                        WorkoutSet(reps = 6, weight = 175f, completed = true),
+                        WorkoutSet(reps = 4, weight = 185f, completed = true)
                     )
                 )
             )

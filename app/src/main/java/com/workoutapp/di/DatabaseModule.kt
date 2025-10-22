@@ -3,6 +3,7 @@ package com.workoutapp.di
 import android.content.Context
 import com.workoutapp.data.database.WorkoutDatabase
 import com.workoutapp.data.database.dao.ExerciseDao
+import com.workoutapp.data.database.dao.GymDao
 import com.workoutapp.data.database.dao.StravaAuthDao
 import com.workoutapp.data.database.dao.StravaSyncDao
 import com.workoutapp.data.database.dao.WorkoutDao
@@ -43,5 +44,10 @@ object DatabaseModule {
     @Provides
     fun provideStravaSyncDao(database: WorkoutDatabase): StravaSyncDao {
         return database.stravaSyncDao()
+    }
+
+    @Provides
+    fun provideGymDao(database: WorkoutDatabase): GymDao {
+        return database.gymDao()
     }
 }

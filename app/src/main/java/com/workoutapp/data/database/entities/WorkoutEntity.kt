@@ -12,5 +12,6 @@ data class WorkoutEntity(
     val id: String,
     val date: Date,
     val type: WorkoutType,
-    val status: WorkoutStatus
+    val status: WorkoutStatus,
+    val gymId: Long? = null
 )

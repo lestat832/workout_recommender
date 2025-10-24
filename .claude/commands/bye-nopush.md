@@ -1,10 +1,10 @@
 ---
-name: bye
-description: End session with context optimization and save
+name: bye-nopush
+description: End session with context save (local commits only, no push)
 tags: [session, workflow, gitignored, project]
 ---
 
-# End Session Protocol
+# End Session Protocol (No Push)
 
 You are ending a work session. Follow these steps in order:
 
@@ -185,18 +185,15 @@ Run comprehensive analysis:
 
 **Note**: Only run deep audit when session count >= 30. Otherwise, just increment the counter.
 
-## 2. Commit and Push Changes
-If there are any changes in the git working directory:
-- Run `git status` to review changes
-- Stage all relevant files (modified files, new files, updated documentation)
-- Create a descriptive commit message following the project's commit style
-- Include co-authorship: `Co-Authored-By: Claude <noreply@anthropic.com>`
-- Use the format with HEREDOC for proper message formatting
-- Push to remote repository (GitHub)
+## 2. Commit Changes Locally (NO PUSH)
 
-**Commit and push format:**
+If there are any changes in the git working directory:
+
 ```bash
-git add [relevant files]
+git status  # Review changes first
+
+git add .
+
 git commit -m "$(cat <<'EOF'
 [type]: [description]
 
@@ -206,30 +203,29 @@ git commit -m "$(cat <<'EOF'
 
 Co-Authored-By: Claude <noreply@anthropic.com>
 EOF
-)" && git push
+)"
+
+# DO NOT PUSH - Keep commits local only
 ```
 
 ## 3. Friendly Goodbye
-Provide a warm, encouraging sign-off message that includes:
-- Brief summary of what was accomplished
-- What's queued up for next session
-- Encouraging message
 
-**Example goodbye format:**
+Provide a warm, encouraging sign-off:
+
 ```
 🎉 Great work today!
 
 ✅ Completed:
 - [key accomplishments]
 
-💾 Session context saved and ready for next time
-
 ⏭️  Next session:
 - [next tasks]
 
+💾 Session saved and changes committed locally (not pushed to remote)
+
 🌙 Rest well! Your progress is saved and ready to pick up exactly where you left off.
 
-Use `/hello` when you return! 👋
+Use /hello when you return! 👋
 ```
 
 Keep it warm, concise, and motivating!

@@ -11,10 +11,26 @@ You are beginning a new work session. Follow these steps in order:
 ## 1. Warm Greeting
 Provide a friendly, energetic welcome message
 
-## 2. Load Session
-Execute the `/sc:load` command to restore previous session context
+## 2. Load Previous Session Context
+Use Serena MCP tools to restore previous session state:
 
-**Safety Check**: If `/sc:load` fails with "Serena MCP not available", verify that `@MCP_Serena.md` is uncommented in `.claude/CLAUDE.md` (should be around line 46)
+```javascript
+// List available session memories
+const memories = await mcp__serena__list_memories()
+
+// Read relevant session context
+const sessionMemory = await mcp__serena__read_memory({ memory_file_name: 'current_session.md' })
+const recentWork = await mcp__serena__read_memory({ memory_file_name: 'recent_work.md' })
+```
+
+**If memories are found:**
+- Restore previous session context
+- Identify where we left off
+- Load task progress
+
+**If no memories found:**
+- This is a fresh start
+- Initialize new session context
 
 ## 2b. Smart Reference Loading
 **Purpose**: Load only the references needed for today's work

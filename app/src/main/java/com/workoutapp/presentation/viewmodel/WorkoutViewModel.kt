@@ -43,43 +43,33 @@ class WorkoutViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true)
 
             try {
-                val exercises = generateWorkoutUseCase(gymId)
-                if (exercises.isEmpty()) {
+                val generated = generateWorkoutUseCase(gymId)
+                if (generated.exercises.isEmpty()) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = "No exercises available. Please select more exercises."
                     )
                     return@launch
                 }
-                
+
                 val workoutId = UUID.randomUUID().toString()
-                // Use gym-scoped history when a gym is selected so the persisted
-                // Workout.type agrees with the gym the user is currently in. Falls
-                // back to the global last workout for legacy/missing-gym cases.
-                val lastWorkout = if (gymId != null) {
-                    workoutRepository.getLastCompletedWorkoutByGym(gymId)
-                } else {
-                    workoutRepository.getLastWorkout()
-                }
-                val workoutType = if (lastWorkout?.type == WorkoutType.PUSH) {
-                    WorkoutType.PULL
-                } else {
-                    WorkoutType.PUSH
-                }
-                
+                // Type comes from the use case (single source of truth) — the VM
+                // no longer recomputes alternation independently.
+                val workoutType = generated.type
+
                 // Get date offset from shared preferences for testing
                 val prefs = getApplication<Application>().getSharedPreferences("debug_prefs", android.content.Context.MODE_PRIVATE)
                 val dateOffset = prefs.getInt("date_offset", 0)
                 val calendar = Calendar.getInstance()
                 calendar.add(Calendar.DAY_OF_YEAR, dateOffset)
-                
+
                 val workout = Workout(
                     id = workoutId,
                     date = calendar.time,
                     type = workoutType,
                     status = WorkoutStatus.IN_PROGRESS,
                     gymId = gymId,
-                    exercises = exercises.map { exercise ->
+                    exercises = generated.exercises.map { exercise ->
                         WorkoutExercise(
                             id = UUID.randomUUID().toString(),
                             workoutId = workoutId,

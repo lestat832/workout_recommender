@@ -3,6 +3,7 @@ package com.workoutapp.data.database.dao
 import androidx.room.*
 import com.workoutapp.data.database.entities.ExerciseEntity
 import com.workoutapp.data.database.entities.UserExerciseEntity
+import com.workoutapp.domain.model.ExerciseCategory
 import com.workoutapp.domain.model.WorkoutType
 import kotlinx.coroutines.flow.Flow
 
@@ -19,6 +20,15 @@ interface ExerciseDao {
 
     @Query("SELECT e.* FROM exercises e INNER JOIN user_exercises ue ON e.id = ue.exerciseId WHERE ue.isActive = 1 AND e.category = :workoutType")
     suspend fun getUserActiveExercisesByType(workoutType: WorkoutType): List<ExerciseEntity>
+
+    @Query("""
+        SELECT e.* FROM exercises e
+        INNER JOIN user_exercises ue ON e.id = ue.exerciseId
+        WHERE ue.isActive = 1 AND e.exerciseCategory IN (:categories)
+    """)
+    suspend fun getUserActiveExercisesByCategories(
+        categories: List<ExerciseCategory>
+    ): List<ExerciseEntity>
 
     @Query("UPDATE exercises SET exerciseCategory = 'STRENGTH_PULL' WHERE category = 'PULL'")
     suspend fun backfillPullCategory()

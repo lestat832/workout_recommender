@@ -59,12 +59,12 @@ fun HomeScreen(
     onStartWorkout: (Long) -> Unit,
     onNavigateToSettings: () -> Unit = {}
 ) {
-    val lastWorkout by viewModel.lastWorkout.collectAsState()
     val recentWorkouts by viewModel.recentWorkouts.collectAsState()
     val importState by viewModel.importState.collectAsState()
     val stravaAuthState by stravaAuthViewModel.authState.collectAsState()
     val gyms by viewModel.gyms.collectAsState()
     val selectedGymId by viewModel.selectedGymId.collectAsState()
+    val nextWorkoutType by viewModel.nextWorkoutType.collectAsState()
 
     var showDebugMenu by remember { mutableStateOf(false) }
     var showSettingsMenu by remember { mutableStateOf(false) }
@@ -406,7 +406,7 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            NextWorkoutCard(lastWorkout, testDateOffset)
+            NextWorkoutCard(nextWorkoutType, testDateOffset)
 
             Spacer(modifier = Modifier.height(24.dp))
             
@@ -557,12 +557,7 @@ fun GymSelector(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NextWorkoutCard(lastWorkout: Workout?, dateOffset: Int = 0) {
-    val nextWorkoutType = if (lastWorkout?.type == WorkoutType.PUSH) {
-        WorkoutType.PULL
-    } else {
-        WorkoutType.PUSH
-    }
+fun NextWorkoutCard(nextWorkoutType: WorkoutType, dateOffset: Int = 0) {
     val dateFormat = SimpleDateFormat("EEEE, MMMM d", Locale.getDefault())
     val calendar = Calendar.getInstance()
     calendar.add(Calendar.DAY_OF_YEAR, dateOffset)

@@ -5,10 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.workoutapp.domain.model.Gym
 import com.workoutapp.domain.model.Workout
 import com.workoutapp.domain.model.WorkoutStatus
+import com.workoutapp.domain.model.WorkoutType
 import com.workoutapp.domain.repository.ExerciseRepository
 import com.workoutapp.domain.repository.GymRepository
 import com.workoutapp.domain.repository.UserPreferencesRepository
 import com.workoutapp.domain.repository.WorkoutRepository
+import com.workoutapp.domain.usecase.GenerateWorkoutUseCase
 import com.workoutapp.domain.usecase.ImportDebugDataUseCase
 import com.workoutapp.domain.usecase.ImportResult
 import com.workoutapp.domain.usecase.ImportWorkoutUseCase
@@ -26,6 +28,7 @@ class HomeViewModel @Inject constructor(
     private val exerciseRepository: ExerciseRepository,
     private val gymRepository: GymRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
+    private val generateWorkoutUseCase: GenerateWorkoutUseCase,
     private val importWorkoutUseCase: ImportWorkoutUseCase,
     private val importDebugDataUseCase: ImportDebugDataUseCase
 ) : ViewModel() {
@@ -45,6 +48,9 @@ class HomeViewModel @Inject constructor(
     private val _selectedGymId = MutableStateFlow<Long?>(null)
     val selectedGymId: StateFlow<Long?> = _selectedGymId.asStateFlow()
 
+    private val _nextWorkoutType = MutableStateFlow(WorkoutType.PULL)
+    val nextWorkoutType: StateFlow<WorkoutType> = _nextWorkoutType.asStateFlow()
+
     init {
         loadLastWorkout()
         loadRecentWorkouts()
@@ -62,6 +68,7 @@ class HomeViewModel @Inject constructor(
                 else -> allGyms.firstOrNull { it.isDefault }?.id ?: allGyms.firstOrNull()?.id
             }
             _selectedGymId.value = resolvedId
+            updateNextType(resolvedId)
         }
     }
 
@@ -70,6 +77,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.setSelectedGymId(gymId)
         }
+        updateNextType(gymId)
     }
     
     private fun loadLastWorkout() {
@@ -86,7 +94,17 @@ class HomeViewModel @Inject constructor(
                     workoutRepository.getWorkoutById(workout.id) ?: workout
                 }
                 _recentWorkouts.value = detailedWorkouts
+                // Recompute next workout type whenever the completed-workouts stream
+                // updates (i.e. after the user finishes a workout and comes back).
+                updateNextType(_selectedGymId.value)
             }
+        }
+    }
+
+    private fun updateNextType(gymId: Long?) {
+        if (gymId == null) return
+        viewModelScope.launch {
+            _nextWorkoutType.value = generateWorkoutUseCase.predictNextType(gymId)
         }
     }
     

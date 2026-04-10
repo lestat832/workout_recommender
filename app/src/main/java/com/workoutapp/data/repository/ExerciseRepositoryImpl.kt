@@ -64,6 +64,12 @@ class ExerciseRepositoryImpl @Inject constructor(
         return exerciseDao.getUserActiveExercisesByType(workoutType).map { it.toDomain() }
     }
 
+    override suspend fun getUserActiveExercisesByCategories(
+        categories: List<ExerciseCategory>
+    ): List<Exercise> {
+        return exerciseDao.getUserActiveExercisesByCategories(categories).map { it.toDomain() }
+    }
+
     private fun ExerciseEntity.toDomain(): Exercise = Exercise(
         id = id,
         name = name,

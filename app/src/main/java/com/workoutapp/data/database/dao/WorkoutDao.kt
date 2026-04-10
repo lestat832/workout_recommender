@@ -32,18 +32,21 @@ interface WorkoutDao {
     
     @Query("SELECT * FROM workouts ORDER BY date DESC LIMIT 1")
     suspend fun getLastWorkout(): WorkoutEntity?
-    
+
+    @Query("SELECT * FROM workouts WHERE gymId = :gymId AND status = 'COMPLETED' ORDER BY date DESC LIMIT 1")
+    suspend fun getLastCompletedWorkoutByGym(gymId: Long): WorkoutEntity?
+
     @Query("SELECT * FROM workouts WHERE status = :status ORDER BY date DESC")
     fun getWorkoutsByStatus(status: WorkoutStatus): Flow<List<WorkoutEntity>>
-    
+
     @Query("SELECT * FROM workout_exercises WHERE workoutId = :workoutId")
     suspend fun getWorkoutExercises(workoutId: String): List<WorkoutExerciseEntity>
-    
+
     @Query("""
-        SELECT DISTINCT we.exerciseId 
-        FROM workout_exercises we 
-        INNER JOIN workouts w ON we.workoutId = w.id 
-        WHERE w.date >= :startDate
+        SELECT DISTINCT we.exerciseId
+        FROM workout_exercises we
+        INNER JOIN workouts w ON we.workoutId = w.id
+        WHERE w.date >= :startDate AND w.status = 'COMPLETED'
     """)
     suspend fun getExerciseIdsFromDate(startDate: Date): List<String>
     

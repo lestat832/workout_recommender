@@ -24,6 +24,7 @@ class InitializeExercisesUseCase @Inject constructor(
     companion object {
         private const val KEY_EXERCISES_INITIALIZED = "exercises_initialized"
         private const val KEY_EXERCISE_COUNT = "exercise_count"
+        private const val KEY_CATEGORY_BACKFILLED = "exercise_category_backfilled"
     }
 
     /**
@@ -36,28 +37,30 @@ class InitializeExercisesUseCase @Inject constructor(
         try {
             val isInitialized = prefs.getBoolean(KEY_EXERCISES_INITIALIZED, false)
 
-            if (isInitialized && !forceRefresh) {
-                // Already initialized, return cached count
-                val count = prefs.getInt(KEY_EXERCISE_COUNT, 0)
-                return@withContext Result.success(null)
+            val count: Int? = if (isInitialized && !forceRefresh) {
+                null
+            } else {
+                val result = exerciseRepository.syncExercisesFromApi()
+                if (result.isFailure) {
+                    return@withContext Result.failure(
+                        result.exceptionOrNull() ?: Exception("Failed to sync exercises")
+                    )
+                }
+                val c = result.getOrNull() ?: 0
+                prefs.edit()
+                    .putBoolean(KEY_EXERCISES_INITIALIZED, true)
+                    .putInt(KEY_EXERCISE_COUNT, c)
+                    .apply()
+                c
             }
 
-            // Sync exercises from API
-            val result = exerciseRepository.syncExercisesFromApi()
-
-            if (result.isFailure) {
-                return@withContext Result.failure(
-                    result.exceptionOrNull() ?: Exception("Failed to sync exercises")
-                )
+            // One-time backfill of exerciseCategory for all existing exercises.
+            // Runs once per install, independent of the CDN sync flag, so existing
+            // users who already initialized before this code shipped still get it.
+            if (!prefs.getBoolean(KEY_CATEGORY_BACKFILLED, false)) {
+                exerciseRepository.backfillExerciseCategories()
+                prefs.edit().putBoolean(KEY_CATEGORY_BACKFILLED, true).apply()
             }
-
-            val count = result.getOrNull() ?: 0
-
-            // Mark as initialized
-            prefs.edit()
-                .putBoolean(KEY_EXERCISES_INITIALIZED, true)
-                .putInt(KEY_EXERCISE_COUNT, count)
-                .apply()
 
             Result.success(count)
         } catch (e: Exception) {

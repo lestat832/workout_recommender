@@ -2,6 +2,7 @@ package com.workoutapp.presentation.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.workoutapp.domain.model.*
 import com.workoutapp.domain.repository.ExerciseRepository
@@ -20,26 +21,29 @@ import kotlin.random.Random
 @HiltViewModel
 class WorkoutViewModel @Inject constructor(
     application: Application,
+    savedStateHandle: SavedStateHandle,
     private val workoutRepository: WorkoutRepository,
     private val exerciseRepository: ExerciseRepository,
     private val generateWorkoutUseCase: GenerateWorkoutUseCase
 ) : AndroidViewModel(application) {
-    
+
+    private val gymId: Long? = savedStateHandle["gymId"]
+
     private val _uiState = MutableStateFlow(WorkoutUiState())
     val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
-    
+
     private var currentWorkout: Workout? = null
-    
+
     init {
         startWorkout()
     }
-    
+
     private fun startWorkout() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            
+
             try {
-                val exercises = generateWorkoutUseCase()
+                val exercises = generateWorkoutUseCase(gymId)
                 if (exercises.isEmpty()) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -49,7 +53,14 @@ class WorkoutViewModel @Inject constructor(
                 }
                 
                 val workoutId = UUID.randomUUID().toString()
-                val lastWorkout = workoutRepository.getLastWorkout()
+                // Use gym-scoped history when a gym is selected so the persisted
+                // Workout.type agrees with the gym the user is currently in. Falls
+                // back to the global last workout for legacy/missing-gym cases.
+                val lastWorkout = if (gymId != null) {
+                    workoutRepository.getLastCompletedWorkoutByGym(gymId)
+                } else {
+                    workoutRepository.getLastWorkout()
+                }
                 val workoutType = if (lastWorkout?.type == WorkoutType.PUSH) {
                     WorkoutType.PULL
                 } else {
@@ -67,6 +78,7 @@ class WorkoutViewModel @Inject constructor(
                     date = calendar.time,
                     type = workoutType,
                     status = WorkoutStatus.IN_PROGRESS,
+                    gymId = gymId,
                     exercises = exercises.map { exercise ->
                         WorkoutExercise(
                             id = UUID.randomUUID().toString(),

@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.workoutapp.domain.model.Gym
 import com.workoutapp.domain.model.Workout
 import com.workoutapp.domain.model.WorkoutType
 import com.workoutapp.presentation.viewmodel.HomeViewModel
@@ -55,13 +56,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     stravaAuthViewModel: com.workoutapp.presentation.settings.StravaAuthViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
-    onStartWorkout: () -> Unit,
+    onStartWorkout: (Long) -> Unit,
     onNavigateToSettings: () -> Unit = {}
 ) {
     val lastWorkout by viewModel.lastWorkout.collectAsState()
     val recentWorkouts by viewModel.recentWorkouts.collectAsState()
     val importState by viewModel.importState.collectAsState()
     val stravaAuthState by stravaAuthViewModel.authState.collectAsState()
+    val gyms by viewModel.gyms.collectAsState()
+    val selectedGymId by viewModel.selectedGymId.collectAsState()
 
     var showDebugMenu by remember { mutableStateOf(false) }
     var showSettingsMenu by remember { mutableStateOf(false) }
@@ -200,10 +203,12 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
+            val enabled = selectedGymId != null
             ExtendedFloatingActionButton(
-                onClick = onStartWorkout,
+                onClick = { selectedGymId?.let(onStartWorkout) },
                 icon = { Icon(Icons.Default.Add, contentDescription = "Start Workout") },
-                text = { Text("Begin the Hunt") }
+                text = { Text("Begin the Hunt") },
+                modifier = Modifier.alpha(if (enabled) 1f else 0.5f)
             )
         }
     ) { paddingValues ->
@@ -392,8 +397,17 @@ fun HomeScreen(
                 }
             }
             
+            if (gyms.isNotEmpty()) {
+                GymSelector(
+                    gyms = gyms,
+                    selectedGymId = selectedGymId,
+                    onSelectGym = { viewModel.selectGym(it) }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
             NextWorkoutCard(lastWorkout, testDateOffset)
-            
+
             Spacer(modifier = Modifier.height(24.dp))
             
             Text(
@@ -506,6 +520,38 @@ fun HomeScreen(
                 }
             }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GymSelector(
+    gyms: List<Gym>,
+    selectedGymId: Long?,
+    onSelectGym: (Long) -> Unit
+) {
+    // Render every gym so no persisted selection can be hidden from the user.
+    // Phase 1 always has exactly 2 gyms post-migration; Phase 6 multi-gym UI
+    // will replace this Row with a scrollable/wrapped layout.
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        gyms.forEach { gym ->
+            val isSelected = gym.id == selectedGymId
+            FilterChip(
+                selected = isSelected,
+                onClick = { onSelectGym(gym.id) },
+                label = {
+                    Text(
+                        text = gym.name,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 

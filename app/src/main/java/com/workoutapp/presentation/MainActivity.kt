@@ -13,9 +13,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.workoutapp.presentation.ui.home.HomeScreen
 import com.workoutapp.presentation.ui.onboarding.OnboardingScreen
 import com.workoutapp.presentation.ui.theme.WorkoutAppTheme
@@ -100,8 +102,8 @@ fun WorkoutNavigation(
         
         composable("home") {
             HomeScreen(
-                onStartWorkout = {
-                    navController.navigate("workout")
+                onStartWorkout = { gymId ->
+                    navController.navigate("workout/$gymId")
                 },
                 onNavigateToSettings = {
                     navController.navigate("settings")
@@ -117,12 +119,15 @@ fun WorkoutNavigation(
                 }
             )
         }
-        
-        composable("workout") {
+
+        composable(
+            route = "workout/{gymId}",
+            arguments = listOf(navArgument("gymId") { type = NavType.LongType })
+        ) {
             WorkoutScreen(
                 onWorkoutComplete = {
                     navController.navigate("home") {
-                        popUpTo("workout") { inclusive = true }
+                        popUpTo("workout/{gymId}") { inclusive = true }
                     }
                 },
                 onNavigateToAddExercise = { workoutType, exerciseIds, onExerciseSelected ->

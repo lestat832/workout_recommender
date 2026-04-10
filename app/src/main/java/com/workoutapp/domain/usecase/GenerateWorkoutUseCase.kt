@@ -15,28 +15,35 @@ class GenerateWorkoutUseCase @Inject constructor(
     private val workoutRepository: WorkoutRepository,
     private val gymRepository: GymRepository
 ) {
-    suspend operator fun invoke(): List<Exercise> {
-        // Get default gym for equipment filtering
-        val defaultGym = gymRepository.getDefaultGym()
+    suspend operator fun invoke(gymId: Long? = null): List<Exercise> {
+        // Load the target gym. If a gymId is provided use it directly; otherwise
+        // fall back to the default gym to preserve pre-Phase-1 callers.
+        val gym = gymId?.let { gymRepository.getGymById(it) } ?: gymRepository.getDefaultGym()
 
-        // Determine workout type based on last workout
-        val lastWorkout = workoutRepository.getLastWorkout()
+        // Determine workout type based on the last COMPLETED workout AT THIS GYM
+        // so alternation doesn't leak across gyms when the user switches between them.
+        // Legacy callers (gymId == null) fall back to the global last workout.
+        val lastWorkout = if (gymId != null) {
+            workoutRepository.getLastCompletedWorkoutByGym(gymId)
+        } else {
+            workoutRepository.getLastWorkout()
+        }
         val workoutType = if (lastWorkout?.type == WorkoutType.PUSH) {
             WorkoutType.PULL
         } else {
             WorkoutType.PUSH
         }
 
-        // Get exercises done in the last week
+        // Get exercises done in the last week (completed workouts only)
         val recentExerciseIds = workoutRepository.getExerciseIdsFromLastWeek()
 
         // Get user's active exercises for this workout type
         // Filter priority: Equipment → Type → Cooldown → Muscle Groups
         val availableExercises = exerciseRepository.getUserActiveExercisesByType(workoutType)
             .filter { exercise ->
-                // If we have a default gym, filter by equipment
-                defaultGym?.let { gym ->
-                    EquipmentType.canPerformExercise(exercise.equipment, gym.equipmentList)
+                // If we have a gym, filter by equipment
+                gym?.let { g ->
+                    EquipmentType.canPerformExercise(exercise.equipment, g.equipmentList)
                 } ?: true // If no gym set, include all exercises
             }
             .filterNot { it.id in recentExerciseIds }

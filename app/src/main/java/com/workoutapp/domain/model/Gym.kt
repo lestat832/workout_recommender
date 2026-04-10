@@ -14,7 +14,8 @@ data class Gym(
     val name: String,
     val equipmentList: List<String>,
     val isDefault: Boolean = false,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val workoutStyle: GymWorkoutStyle = GymWorkoutStyle.STRENGTH
 ) {
     companion object {
         /**

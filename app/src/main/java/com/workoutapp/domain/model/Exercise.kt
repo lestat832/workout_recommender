@@ -6,6 +6,7 @@ data class Exercise(
     val muscleGroups: List<MuscleGroup>,
     val equipment: String,
     val category: WorkoutType,
+    val exerciseCategory: ExerciseCategory = ExerciseCategory.STRENGTH_PUSH,
     val imageUrl: String? = null,
     val instructions: List<String> = emptyList(),
     val isUserCreated: Boolean = false

@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
         StravaAuthEntity::class,
         GymEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(DateConverter::class, SetListConverter::class, StringListConverter::class, MuscleGroupListConverter::class)
@@ -138,7 +138,41 @@ abstract class WorkoutDatabase : RoomDatabase() {
                 """)
             }
         }
-        
+
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Phase 0: taxonomy foundation.
+                // Add exerciseCategory column with a placeholder default; the app runs
+                // a one-time Kotlin backfill via InitializeExercisesUseCase after
+                // startup to set the correct value from muscleGroups + legacy category.
+                db.execSQL("ALTER TABLE exercises ADD COLUMN exerciseCategory TEXT NOT NULL DEFAULT 'STRENGTH_PUSH'")
+
+                // Phase 1: gym mode selection.
+                db.execSQL("ALTER TABLE gyms ADD COLUMN workoutStyle TEXT NOT NULL DEFAULT 'STRENGTH'")
+
+                // Conservative rename: only touch a row that looks like the original
+                // MIGRATION_6_7 seed (name unchanged, default, full commercial equipment).
+                // Users who renamed their default gym or customized its equipment are
+                // left alone.
+                db.execSQL(
+                    "UPDATE gyms SET name = 'LMU Gym' " +
+                        "WHERE name = 'Home Gym' AND isDefault = 1 AND equipmentList LIKE '%Barbell%'"
+                )
+
+                // Insert a new Home Gym row with a narrow strength equipment subset.
+                // Every upgraded user gets this row appended. Multi-gym users retain
+                // all existing gyms; the new row is just a second option.
+                val homeEquipment = "Dumbbell,Bodyweight"
+                val currentTime = System.currentTimeMillis()
+                db.execSQL(
+                    """
+                    INSERT INTO gyms (name, equipmentList, isDefault, createdAt, workoutStyle)
+                    VALUES ('Home Gym', '$homeEquipment', 0, $currentTime, 'STRENGTH')
+                    """
+                )
+            }
+        }
+
         fun getDatabase(context: Context): WorkoutDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -146,15 +180,35 @@ abstract class WorkoutDatabase : RoomDatabase() {
                     WorkoutDatabase::class.java,
                     "workout_database"
                 )
-                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                    // Allow destructive recovery only for hypothetical pre-v3 installs
+                    // (the project has no committed v1/v2 migrations and has shipped
+                    // v3+ since its earliest tracked schema). Any unhandled v3+ upgrade
+                    // will still fail loudly instead of wiping user data.
+                    .fallbackToDestructiveMigrationFrom(1, 2)
                     .addCallback(object : RoomDatabase.Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)
-                            // Note: Exercise initialization is handled by InitializeExercisesUseCase
-                            // in the app startup to avoid blocking database creation
+                            // Fresh install on v8: seed both gyms deterministically.
+                            // Exercise initialization is handled by InitializeExercisesUseCase
+                            // in the app startup to avoid blocking database creation.
+                            val now = System.currentTimeMillis()
+                            val lmuEquipment = "Barbell,Dumbbell,Cable,Machine,Bodyweight,Bench,Smith Machine,Kettlebell,Resistance Band,None,Other"
+                            val homeEquipment = "Dumbbell,Bodyweight"
+                            db.execSQL(
+                                """
+                                INSERT INTO gyms (name, equipmentList, isDefault, createdAt, workoutStyle)
+                                VALUES ('LMU Gym', '$lmuEquipment', 1, $now, 'STRENGTH')
+                                """
+                            )
+                            db.execSQL(
+                                """
+                                INSERT INTO gyms (name, equipmentList, isDefault, createdAt, workoutStyle)
+                                VALUES ('Home Gym', '$homeEquipment', 0, $now, 'STRENGTH')
+                                """
+                            )
                         }
                     })
-                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance

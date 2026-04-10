@@ -7,6 +7,7 @@ data class Workout(
     val date: Date,
     val type: WorkoutType,
     val status: WorkoutStatus,
+    val gymId: Long? = null,
     val exercises: List<WorkoutExercise> = emptyList()
 )
 

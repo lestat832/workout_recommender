@@ -10,12 +10,27 @@ import kotlinx.coroutines.flow.Flow
 interface ExerciseDao {
     @Query("SELECT * FROM exercises")
     fun getAllExercises(): Flow<List<ExerciseEntity>>
-    
+
+    @Query("SELECT * FROM exercises WHERE id = :id LIMIT 1")
+    suspend fun getExerciseById(id: String): ExerciseEntity?
+
     @Query("SELECT * FROM exercises WHERE category = :workoutType")
     suspend fun getExercisesByType(workoutType: WorkoutType): List<ExerciseEntity>
-    
+
     @Query("SELECT e.* FROM exercises e INNER JOIN user_exercises ue ON e.id = ue.exerciseId WHERE ue.isActive = 1 AND e.category = :workoutType")
     suspend fun getUserActiveExercisesByType(workoutType: WorkoutType): List<ExerciseEntity>
+
+    @Query("UPDATE exercises SET exerciseCategory = 'STRENGTH_PULL' WHERE category = 'PULL'")
+    suspend fun backfillPullCategory()
+
+    @Query("UPDATE exercises SET exerciseCategory = 'STRENGTH_PUSH' WHERE category = 'PUSH'")
+    suspend fun backfillPushCategory()
+
+    @Query("UPDATE exercises SET exerciseCategory = 'STRENGTH_LEGS' WHERE muscleGroups LIKE '%LEGS%'")
+    suspend fun backfillLegsCategory()
+
+    @Query("UPDATE exercises SET exerciseCategory = 'CORE' WHERE muscleGroups LIKE '%CORE%' AND exerciseCategory != 'STRENGTH_LEGS'")
+    suspend fun backfillCoreCategory()
     
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExercises(exercises: List<ExerciseEntity>)

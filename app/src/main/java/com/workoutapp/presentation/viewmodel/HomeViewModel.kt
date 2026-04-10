@@ -2,9 +2,12 @@ package com.workoutapp.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.workoutapp.domain.model.Gym
 import com.workoutapp.domain.model.Workout
 import com.workoutapp.domain.model.WorkoutStatus
 import com.workoutapp.domain.repository.ExerciseRepository
+import com.workoutapp.domain.repository.GymRepository
+import com.workoutapp.domain.repository.UserPreferencesRepository
 import com.workoutapp.domain.repository.WorkoutRepository
 import com.workoutapp.domain.usecase.ImportDebugDataUseCase
 import com.workoutapp.domain.usecase.ImportResult
@@ -13,6 +16,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -20,22 +24,52 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     private val workoutRepository: WorkoutRepository,
     private val exerciseRepository: ExerciseRepository,
+    private val gymRepository: GymRepository,
+    private val userPreferencesRepository: UserPreferencesRepository,
     private val importWorkoutUseCase: ImportWorkoutUseCase,
     private val importDebugDataUseCase: ImportDebugDataUseCase
 ) : ViewModel() {
-    
+
     private val _lastWorkout = MutableStateFlow<Workout?>(null)
     val lastWorkout: StateFlow<Workout?> = _lastWorkout.asStateFlow()
-    
+
     private val _recentWorkouts = MutableStateFlow<List<Workout>>(emptyList())
     val recentWorkouts: StateFlow<List<Workout>> = _recentWorkouts.asStateFlow()
-    
+
     private val _importState = MutableStateFlow<ImportState>(ImportState.Idle)
     val importState: StateFlow<ImportState> = _importState.asStateFlow()
-    
+
+    private val _gyms = MutableStateFlow<List<Gym>>(emptyList())
+    val gyms: StateFlow<List<Gym>> = _gyms.asStateFlow()
+
+    private val _selectedGymId = MutableStateFlow<Long?>(null)
+    val selectedGymId: StateFlow<Long?> = _selectedGymId.asStateFlow()
+
     init {
         loadLastWorkout()
         loadRecentWorkouts()
+        loadGyms()
+    }
+
+    private fun loadGyms() {
+        viewModelScope.launch {
+            val allGyms = gymRepository.getAllGyms()
+            _gyms.value = allGyms
+            // Initial selection: stored preference, else default gym, else first gym.
+            val storedId = userPreferencesRepository.selectedGymId().firstOrNull()
+            val resolvedId = when {
+                storedId != null && allGyms.any { it.id == storedId } -> storedId
+                else -> allGyms.firstOrNull { it.isDefault }?.id ?: allGyms.firstOrNull()?.id
+            }
+            _selectedGymId.value = resolvedId
+        }
+    }
+
+    fun selectGym(gymId: Long) {
+        _selectedGymId.value = gymId
+        viewModelScope.launch {
+            userPreferencesRepository.setSelectedGymId(gymId)
+        }
     }
     
     private fun loadLastWorkout() {

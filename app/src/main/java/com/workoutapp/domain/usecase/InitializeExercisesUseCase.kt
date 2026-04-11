@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import com.workoutapp.data.database.CustomExerciseSeeder
 import com.workoutapp.data.database.HomeGymCatalogSeeder
 import com.workoutapp.data.database.HomeGymMovementCatalog
+import com.workoutapp.data.database.LmuLegCatalog
 import com.workoutapp.data.repository.ExerciseRepositoryImpl
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +32,7 @@ class InitializeExercisesUseCase @Inject constructor(
         private const val KEY_CONDITIONING_EXERCISES_SEEDED = "conditioning_exercises_seeded"
         private const val KEY_CARDIO_NAMES_RECLASSIFIED = "cardio_names_reclassified"
         private const val KEY_HOME_GYM_CATALOG_SEEDED = "home_gym_catalog_seeded"
+        private const val KEY_LMU_LEG_CATALOG_SEEDED = "lmu_leg_catalog_seeded"
     }
 
     /**
@@ -102,6 +104,16 @@ class InitializeExercisesUseCase @Inject constructor(
                 exerciseRepository.setUserExercises(allIds)
 
                 prefs.edit().putBoolean(KEY_HOME_GYM_CATALOG_SEEDED, true).apply()
+            }
+
+            // LMU leg catalog: hand-curated list of leg movements that may
+            // surface on LMU pull day. Seeds the 9 new movements (the other 2
+            // are reused from the Home Gym catalog) and activates all 11 ids.
+            if (!prefs.getBoolean(KEY_LMU_LEG_CATALOG_SEEDED, false)) {
+                val newLmuLegs = LmuLegCatalog.buildNewExercises()
+                exerciseRepository.insertExercises(newLmuLegs)
+                exerciseRepository.setUserExercises(LmuLegCatalog.allowedIds.toList())
+                prefs.edit().putBoolean(KEY_LMU_LEG_CATALOG_SEEDED, true).apply()
             }
 
             Result.success(count)

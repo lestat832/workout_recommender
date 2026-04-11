@@ -1,5 +1,6 @@
 package com.workoutapp.domain.usecase
 
+import com.workoutapp.data.database.LmuLegCatalog
 import com.workoutapp.domain.model.EquipmentType
 import com.workoutapp.domain.model.ExerciseCategory
 import com.workoutapp.domain.model.GeneratedWorkout
@@ -52,7 +53,18 @@ class GenerateWorkoutUseCase @Inject constructor(
         }
 
         val selected = targetMuscleGroups.mapNotNull { muscleGroup ->
-            exercisesByMuscle[muscleGroup]?.randomOrNull()
+            val candidates = exercisesByMuscle[muscleGroup] ?: return@mapNotNull null
+            val filtered = when (muscleGroup) {
+                // Strength generators share the LMU leg whitelist: when picking a
+                // LEGS exercise, prefer the hand-curated LmuLegCatalog. Falls back
+                // to the full equipment-matched pool if no catalog movement is
+                // available at this gym so the leg slot never silently drops out.
+                MuscleGroup.LEGS -> candidates
+                    .filter { it.id in LmuLegCatalog.allowedIds }
+                    .ifEmpty { candidates }
+                else -> candidates
+            }
+            filtered.randomOrNull()
         }.take(3)
 
         return GeneratedWorkout(type = workoutType, exercises = selected)

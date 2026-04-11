@@ -8,6 +8,8 @@ import com.workoutapp.domain.model.*
 import com.workoutapp.domain.repository.ExerciseRepository
 import com.workoutapp.domain.repository.WorkoutRepository
 import com.workoutapp.domain.usecase.GenerateWorkoutUseCase
+import com.workoutapp.domain.usecase.StrengthPrescription
+import com.workoutapp.domain.usecase.StrengthSetPrescriber
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,6 +31,13 @@ class WorkoutViewModel @Inject constructor(
 
     private val gymId: Long? = savedStateHandle["gymId"]
 
+    // Optional skip-button override. Null for the normal flow; populated when
+    // the user taps "Skip" on the NextWorkoutCard and nav passes ?type=PUSH/PULL.
+    private val typeOverride: WorkoutType? =
+        savedStateHandle.get<String>("type")
+            ?.takeIf { it.isNotBlank() }
+            ?.let { runCatching { WorkoutType.valueOf(it) }.getOrNull() }
+
     private val _uiState = MutableStateFlow(WorkoutUiState())
     val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
 
@@ -43,7 +52,7 @@ class WorkoutViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true)
 
             try {
-                val generated = generateWorkoutUseCase(gymId)
+                val generated = generateWorkoutUseCase(gymId, typeOverride)
                 if (generated.exercises.isEmpty()) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -81,10 +90,17 @@ class WorkoutViewModel @Inject constructor(
                 
                 workoutRepository.createWorkout(workout)
                 currentWorkout = workout
-                
+
+                // Build per-exercise 10x-trainer prescriptions using the last
+                // two completed sessions of each exercise. Position-based
+                // defaults kick in for first-time exercises; history-based
+                // progression activates once 2+ sessions are on record.
+                val prescriptions = buildPrescriptions(workout.exercises)
+
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    exercises = workout.exercises
+                    exercises = workout.exercises,
+                    prescriptions = prescriptions
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -248,6 +264,40 @@ class WorkoutViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(exercises = exercises)
     }
     
+    /**
+     * For each exercise in the freshly generated workout, look up the last
+     * two completed sessions containing that exact exercise id and hand the
+     * history off to [StrengthSetPrescriber]. Returns a map keyed by
+     * workout-exercise id so the UI can render the prescription line under
+     * each card. Runs once at workout start — no incremental updates.
+     */
+    private suspend fun buildPrescriptions(
+        exercises: List<WorkoutExercise>
+    ): Map<String, StrengthPrescription> {
+        if (exercises.isEmpty()) return emptyMap()
+
+        val completed = workoutRepository
+            .getWorkoutsByStatus(WorkoutStatus.COMPLETED)
+            .firstOrNull()
+            .orEmpty()
+        val candidateWorkouts = completed.take(HISTORY_LOOKBACK_WORKOUTS)
+        val fullCandidates = candidateWorkouts.mapNotNull {
+            workoutRepository.getWorkoutById(it.id)
+        }
+
+        return exercises.mapIndexed { index, workoutExercise ->
+            val targetId = workoutExercise.exercise.id
+            val history = fullCandidates
+                .mapNotNull { w -> w.exercises.firstOrNull { it.exercise.id == targetId } }
+                .take(2)
+            val prescription = StrengthSetPrescriber.prescribe(
+                positionInWorkout = index,
+                history = history
+            )
+            workoutExercise.id to prescription
+        }.toMap()
+    }
+
     fun getCurrentWorkoutType(): WorkoutType? {
         return currentWorkout?.type
     }
@@ -310,6 +360,12 @@ class WorkoutViewModel @Inject constructor(
 data class WorkoutUiState(
     val isLoading: Boolean = false,
     val exercises: List<WorkoutExercise> = emptyList(),
+    val prescriptions: Map<String, StrengthPrescription> = emptyMap(),
     val error: String? = null,
     val isCompleted: Boolean = false
 )
+
+// Number of most-recent completed workouts to scan when building the
+// per-exercise history window. Over-fetch beyond the 2-session minimum so
+// sessions that didn't include a given exercise don't starve the lookup.
+private const val HISTORY_LOOKBACK_WORKOUTS = 20

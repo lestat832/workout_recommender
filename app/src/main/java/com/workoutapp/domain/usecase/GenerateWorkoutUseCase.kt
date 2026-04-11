@@ -18,13 +18,19 @@ class GenerateWorkoutUseCase @Inject constructor(
     private val workoutRepository: WorkoutRepository,
     private val gymRepository: GymRepository
 ) {
-    suspend operator fun invoke(gymId: Long? = null): GeneratedWorkout {
+    suspend operator fun invoke(
+        gymId: Long? = null,
+        typeOverride: WorkoutType? = null
+    ): GeneratedWorkout {
         // Load the target gym for equipment filtering. If a gymId is provided
         // use it directly; otherwise fall back to the default gym to preserve
         // pre-Phase-1 callers.
         val gym = gymId?.let { gymRepository.getGymById(it) } ?: gymRepository.getDefaultGym()
 
-        val workoutType = resolveType(gymId)
+        // Skip-button flow: when the caller forces a type (user tapped skip on
+        // the NextWorkoutCard), bypass the week-reset + alternation resolver.
+        // Override applies to this session only; next completion recomputes.
+        val workoutType = typeOverride ?: resolveType(gymId)
 
         // Recent exercise IDs to avoid (7-day cooldown, completed workouts only
         // per Phase 0).

@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.workoutapp.domain.model.WorkoutFormat
+import com.workoutapp.domain.usecase.RepPrescriber
 import com.workoutapp.presentation.viewmodel.ConditioningWorkoutViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -135,11 +136,21 @@ fun ConditioningWorkoutScreen(
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
+            // Build the session id list once so the prescriber can reason
+            // about each station's position (closer slot triggers the
+            // pattern-stacking modifier for EMOM).
+            val sessionIds = uiState.exercises.map { it.exercise.id }
+
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(uiState.exercises) { workoutExercise ->
+                    val repTarget = RepPrescriber.prescribe(
+                        exerciseId = workoutExercise.exercise.id,
+                        format = uiState.format,
+                        sessionIds = sessionIds
+                    )
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
@@ -147,11 +158,24 @@ fun ConditioningWorkoutScreen(
                         )
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = workoutExercise.exercise.name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = workoutExercise.exercise.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = repTarget,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                             Text(
                                 text = workoutExercise.exercise.equipment,
                                 style = MaterialTheme.typography.bodySmall,

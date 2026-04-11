@@ -33,6 +33,64 @@ class InitializeExercisesUseCase @Inject constructor(
         private const val KEY_CARDIO_NAMES_RECLASSIFIED = "cardio_names_reclassified"
         private const val KEY_HOME_GYM_CATALOG_SEEDED = "home_gym_catalog_seeded"
         private const val KEY_LMU_LEG_CATALOG_SEEDED = "lmu_leg_catalog_seeded"
+        private const val KEY_HOME_GYM_UPPER_EXPANSION_SEEDED = "home_gym_upper_expansion_seeded"
+        private const val KEY_HOME_GYM_POOL_EXPANSION_2_SEEDED = "home_gym_pool_expansion_2_seeded"
+        private const val KEY_HOME_GYM_POOL_EXPANSION_3_SEEDED = "home_gym_pool_expansion_3_seeded"
+
+        // Ids added after the initial Home Gym catalog seed. Existing installs
+        // need a one-shot insert + activation for these; fresh installs pick
+        // them up via the full catalog seed above.
+        private val UPPER_EXPANSION_IDS = setOf(
+            "custom_pull_up",
+            "custom_atomic_pushup_trx",
+            "custom_atomic_pushup_sliders"
+        )
+
+        // Second pool expansion — 16 movements sourced from user's written
+        // list and the Stack 52 TRX poster. Spans all 5 non-cardio buckets.
+        // Each migration gets its own gate for auditability; don't merge with
+        // UPPER_EXPANSION_IDS. (custom_trx_lunge_twist was part of this batch
+        // but was later removed from the catalog.)
+        private val POOL_EXPANSION_2_IDS = setOf(
+            "custom_heavy_db_deadlift",
+            "custom_pair_db_rdl",
+            "custom_trx_side_lunge",
+            "custom_trx_hamstring_curl",
+            "custom_trx_hip_press",
+            "custom_trx_single_arm_row",
+            "custom_trx_y_fly",
+            "custom_trx_power_pull",
+            "custom_trx_squat_row",
+            "custom_trx_t_pushup",
+            "custom_trx_spiderman_pushup",
+            "custom_trx_clap_pushup",
+            "custom_side_plank",
+            "custom_trx_oblique_crunch",
+            "custom_squat_thrusts",
+            "custom_trx_mountain_climber"
+        )
+
+        // Third pool expansion — 12 movements added after the first feedback
+        // loop: forward lunge variants (Heavy DB + Pair DB + bodyweight reverse),
+        // kettlebell additions (swing, single-leg deadlift, windmill, clean,
+        // snatch), medicine ball core work (russian twist, woodchopper, sit-up),
+        // and wall ball squats as a self-toss full-body compound. Does NOT
+        // include medicine ball chest pass (no wall space) or ball slam
+        // (explicitly removed).
+        private val POOL_EXPANSION_3_IDS = setOf(
+            "custom_heavy_db_forward_lunge",
+            "custom_pair_db_forward_lunge",
+            "custom_kb_swing",
+            "custom_kb_single_leg_deadlift",
+            "custom_kb_windmill",
+            "custom_kb_clean",
+            "custom_kb_snatch",
+            "custom_med_ball_russian_twist",
+            "custom_med_ball_woodchopper",
+            "custom_med_ball_sit_up",
+            "custom_reverse_lunges",
+            "custom_wall_ball_squats"
+        )
     }
 
     /**
@@ -104,6 +162,44 @@ class InitializeExercisesUseCase @Inject constructor(
                 exerciseRepository.setUserExercises(allIds)
 
                 prefs.edit().putBoolean(KEY_HOME_GYM_CATALOG_SEEDED, true).apply()
+            }
+
+            // Upper-body expansion: Pull-Up and Atomic Push-Up were added to
+            // HomeGymMovementCatalog after the initial seed shipped. Existing
+            // installs already flipped KEY_HOME_GYM_CATALOG_SEEDED so they
+            // need an additive seed for just these two ids. Fresh installs
+            // already inserted them above and this block is a no-op update
+            // (insertExercises uses REPLACE conflict strategy).
+            if (!prefs.getBoolean(KEY_HOME_GYM_UPPER_EXPANSION_SEEDED, false)) {
+                val newExercises = HomeGymCatalogSeeder.buildExercises()
+                    .filter { it.id in UPPER_EXPANSION_IDS }
+                exerciseRepository.insertExercises(newExercises)
+                exerciseRepository.setUserExercises(UPPER_EXPANSION_IDS.toList())
+                prefs.edit().putBoolean(KEY_HOME_GYM_UPPER_EXPANSION_SEEDED, true).apply()
+            }
+
+            // Pool expansion #2: 16 movements across lower/pull/push/core/
+            // conditioning buckets, sourced from Marc's written list plus
+            // curated TRX picks from the Stack 52 poster. Same additive-seed
+            // pattern as the upper-body expansion above.
+            if (!prefs.getBoolean(KEY_HOME_GYM_POOL_EXPANSION_2_SEEDED, false)) {
+                val newExercises = HomeGymCatalogSeeder.buildExercises()
+                    .filter { it.id in POOL_EXPANSION_2_IDS }
+                exerciseRepository.insertExercises(newExercises)
+                exerciseRepository.setUserExercises(POOL_EXPANSION_2_IDS.toList())
+                prefs.edit().putBoolean(KEY_HOME_GYM_POOL_EXPANSION_2_SEEDED, true).apply()
+            }
+
+            // Pool expansion #3: 12 movements added after the first feedback
+            // loop — forward lunges, kettlebell work, medicine ball core, and
+            // self-toss wall ball squats. Follows the same additive-seed
+            // pattern; each migration flag is independent for auditability.
+            if (!prefs.getBoolean(KEY_HOME_GYM_POOL_EXPANSION_3_SEEDED, false)) {
+                val newExercises = HomeGymCatalogSeeder.buildExercises()
+                    .filter { it.id in POOL_EXPANSION_3_IDS }
+                exerciseRepository.insertExercises(newExercises)
+                exerciseRepository.setUserExercises(POOL_EXPANSION_3_IDS.toList())
+                prefs.edit().putBoolean(KEY_HOME_GYM_POOL_EXPANSION_3_SEEDED, true).apply()
             }
 
             // LMU leg catalog: hand-curated list of leg movements that may

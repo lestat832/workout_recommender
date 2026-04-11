@@ -19,6 +19,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.workoutapp.domain.model.GymWorkoutStyle
+import com.workoutapp.domain.model.WorkoutFormat
+import com.workoutapp.domain.model.WorkoutType
 import com.workoutapp.presentation.ui.home.HomeScreen
 import com.workoutapp.presentation.ui.onboarding.OnboardingScreen
 import com.workoutapp.presentation.ui.theme.WorkoutAppTheme
@@ -104,10 +106,19 @@ fun WorkoutNavigation(
         
         composable("home") {
             HomeScreen(
-                onStartWorkout = { gymId, style ->
+                onStartWorkout = { gymId, style, typeOverride, formatOverride ->
+                    // Skip-button overrides ride in as query args. The workout
+                    // VMs parse them off SavedStateHandle and forward to the
+                    // use case. Omitting them yields the default resolver path.
                     val route = when (style) {
-                        GymWorkoutStyle.CONDITIONING -> "conditioning_workout/$gymId"
-                        GymWorkoutStyle.STRENGTH -> "workout/$gymId"
+                        GymWorkoutStyle.CONDITIONING -> {
+                            val q = formatOverride?.let { "?format=${it.name}" } ?: ""
+                            "conditioning_workout/$gymId$q"
+                        }
+                        GymWorkoutStyle.STRENGTH -> {
+                            val q = typeOverride?.let { "?type=${it.name}" } ?: ""
+                            "workout/$gymId$q"
+                        }
                     }
                     navController.navigate(route)
                 },
@@ -127,13 +138,20 @@ fun WorkoutNavigation(
         }
 
         composable(
-            route = "workout/{gymId}",
-            arguments = listOf(navArgument("gymId") { type = NavType.LongType })
+            route = "workout/{gymId}?type={type}",
+            arguments = listOf(
+                navArgument("gymId") { type = NavType.LongType },
+                navArgument("type") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                    nullable = false
+                }
+            )
         ) {
             WorkoutScreen(
                 onWorkoutComplete = {
                     navController.navigate("home") {
-                        popUpTo("workout/{gymId}") { inclusive = true }
+                        popUpTo("workout/{gymId}?type={type}") { inclusive = true }
                     }
                 },
                 onNavigateToAddExercise = { workoutType, exerciseIds, onExerciseSelected ->
@@ -145,13 +163,20 @@ fun WorkoutNavigation(
         }
 
         composable(
-            route = "conditioning_workout/{gymId}",
-            arguments = listOf(navArgument("gymId") { type = NavType.LongType })
+            route = "conditioning_workout/{gymId}?format={format}",
+            arguments = listOf(
+                navArgument("gymId") { type = NavType.LongType },
+                navArgument("format") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                    nullable = false
+                }
+            )
         ) {
             ConditioningWorkoutScreen(
                 onWorkoutComplete = {
                     navController.navigate("home") {
-                        popUpTo("conditioning_workout/{gymId}") { inclusive = true }
+                        popUpTo("conditioning_workout/{gymId}?format={format}") { inclusive = true }
                     }
                 }
             )
@@ -190,8 +215,7 @@ fun WorkoutNavigation(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
-                onExerciseCreated = { exercise ->
-                    // Navigate back to AddExerciseScreen after creating exercise
+                onExerciseCreated = { _ ->
                     navController.popBackStack()
                 }
             )

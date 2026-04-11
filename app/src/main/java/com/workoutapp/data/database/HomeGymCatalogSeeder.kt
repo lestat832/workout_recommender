@@ -16,8 +16,8 @@ import com.workoutapp.domain.model.WorkoutType
  *  - `muscleGroups` — legitimate muscle group tags for LMU's muscle-group
  *    picker if the exercise ever surfaces there
  *
- * Upper body is split into push/pull by movement-pattern keyword matching on
- * the movement name.
+ * Upper body is pre-split into UPPER_PULL and UPPER_PUSH at the catalog level,
+ * so the seeder just forwards each bucket to the matching exerciseCategory.
  */
 object HomeGymCatalogSeeder {
 
@@ -59,23 +59,17 @@ object HomeGymCatalogSeeder {
                 legacyCategory = WorkoutType.PULL
             )
 
-            HomeGymMovementCatalog.Bucket.UPPER_BODY -> {
-                val lower = movement.name.lowercase()
-                val isPull = "row" in lower
-                if (isPull) {
-                    Categorization(
-                        muscleGroups = listOf(MuscleGroup.BACK, MuscleGroup.BICEP),
-                        exerciseCategory = ExerciseCategory.STRENGTH_PULL,
-                        legacyCategory = WorkoutType.PULL
-                    )
-                } else {
-                    Categorization(
-                        muscleGroups = listOf(MuscleGroup.CHEST, MuscleGroup.SHOULDER, MuscleGroup.TRICEP),
-                        exerciseCategory = ExerciseCategory.STRENGTH_PUSH,
-                        legacyCategory = WorkoutType.PUSH
-                    )
-                }
-            }
+            HomeGymMovementCatalog.Bucket.UPPER_PULL -> Categorization(
+                muscleGroups = listOf(MuscleGroup.BACK, MuscleGroup.BICEP),
+                exerciseCategory = ExerciseCategory.STRENGTH_PULL,
+                legacyCategory = WorkoutType.PULL
+            )
+
+            HomeGymMovementCatalog.Bucket.UPPER_PUSH -> Categorization(
+                muscleGroups = listOf(MuscleGroup.CHEST, MuscleGroup.SHOULDER, MuscleGroup.TRICEP),
+                exerciseCategory = ExerciseCategory.STRENGTH_PUSH,
+                legacyCategory = WorkoutType.PUSH
+            )
 
             HomeGymMovementCatalog.Bucket.CORE -> Categorization(
                 muscleGroups = listOf(MuscleGroup.CORE),

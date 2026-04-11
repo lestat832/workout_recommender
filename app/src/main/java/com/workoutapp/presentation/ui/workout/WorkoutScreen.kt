@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -25,6 +26,7 @@ import coil.compose.AsyncImage
 import com.workoutapp.domain.model.Exercise
 import com.workoutapp.domain.model.Set
 import com.workoutapp.domain.model.WorkoutExercise
+import com.workoutapp.domain.usecase.StrengthPrescription
 import com.workoutapp.presentation.viewmodel.WorkoutViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -143,6 +145,7 @@ fun WorkoutScreen(
                     items(uiState.exercises.size) { index ->
                         ExerciseCard(
                             exercise = uiState.exercises[index],
+                            prescription = uiState.prescriptions[uiState.exercises[index].id],
                             onAddSet = { viewModel.addSet(uiState.exercises[index].id) },
                             onRemoveSet = { setIndex ->
                                 viewModel.removeSet(uiState.exercises[index].id, setIndex)
@@ -246,6 +249,7 @@ fun WorkoutScreen(
 @Composable
 fun ExerciseCard(
     exercise: WorkoutExercise,
+    prescription: StrengthPrescription? = null,
     onAddSet: () -> Unit,
     onRemoveSet: (Int) -> Unit,
     onUpdateSet: (Int, Int, Float) -> Unit,
@@ -282,12 +286,30 @@ fun ExerciseCard(
                         text = exercise.exercise.name,
                         style = MaterialTheme.typography.titleLarge
                     )
-                    
+
                     Text(
                         text = "${exercise.exercise.muscleGroups.joinToString(", ") { it.name }} • ${exercise.exercise.equipment}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+
+                    // 10x-trainer prescription line. Bold primary color for
+                    // the target, dimmer secondary line for the rationale so
+                    // the user sees the goal first and the "why" second.
+                    prescription?.let { p ->
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = p.displayLine(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = p.rationale,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 
                 Row {

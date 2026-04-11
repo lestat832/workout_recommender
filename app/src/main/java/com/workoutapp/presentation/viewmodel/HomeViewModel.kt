@@ -5,12 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.workoutapp.domain.model.Gym
 import com.workoutapp.domain.model.GymWorkoutStyle
 import com.workoutapp.domain.model.Workout
+import com.workoutapp.domain.model.WorkoutFormat
 import com.workoutapp.domain.model.WorkoutStatus
 import com.workoutapp.domain.model.WorkoutType
 import com.workoutapp.domain.repository.ExerciseRepository
 import com.workoutapp.domain.repository.GymRepository
 import com.workoutapp.domain.repository.UserPreferencesRepository
 import com.workoutapp.domain.repository.WorkoutRepository
+import com.workoutapp.domain.usecase.GenerateConditioningWorkoutUseCase
 import com.workoutapp.domain.usecase.GenerateWorkoutUseCase
 import com.workoutapp.domain.usecase.ImportDebugDataUseCase
 import com.workoutapp.domain.usecase.ImportResult
@@ -30,6 +32,7 @@ class HomeViewModel @Inject constructor(
     private val gymRepository: GymRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val generateWorkoutUseCase: GenerateWorkoutUseCase,
+    private val generateConditioningWorkoutUseCase: GenerateConditioningWorkoutUseCase,
     private val importWorkoutUseCase: ImportWorkoutUseCase,
     private val importDebugDataUseCase: ImportDebugDataUseCase
 ) : ViewModel() {
@@ -54,6 +57,13 @@ class HomeViewModel @Inject constructor(
 
     private val _selectedGymStyle = MutableStateFlow<GymWorkoutStyle?>(null)
     val selectedGymStyle: StateFlow<GymWorkoutStyle?> = _selectedGymStyle.asStateFlow()
+
+    // Predicted conditioning format for the Home Gym NextWorkoutCard. Null
+    // when the selected gym is strength-only. Stable between recomputes so
+    // the card doesn't flicker — updateNextType reseeds it on gym change /
+    // workout completion, skip() flips it in place.
+    private val _nextWorkoutFormat = MutableStateFlow<WorkoutFormat?>(null)
+    val nextWorkoutFormat: StateFlow<WorkoutFormat?> = _nextWorkoutFormat.asStateFlow()
 
     init {
         loadLastWorkout()
@@ -109,10 +119,42 @@ class HomeViewModel @Inject constructor(
         if (gymId == null) return
         // Update the style first so HomeScreen can branch the card even before
         // the predict call resolves (conditioning gyms don't need prediction).
-        _selectedGymStyle.value = _gyms.value.firstOrNull { it.id == gymId }?.workoutStyle
-        if (_selectedGymStyle.value == GymWorkoutStyle.CONDITIONING) return
+        val style = _gyms.value.firstOrNull { it.id == gymId }?.workoutStyle
+        _selectedGymStyle.value = style
+        if (style == GymWorkoutStyle.CONDITIONING) {
+            // Seed a fresh random format for the card. Stable until the next
+            // recompute (gym switch, workout completion) or a skip() flip.
+            _nextWorkoutFormat.value = generateConditioningWorkoutUseCase.predictNextFormat()
+            return
+        }
+        // Strength gym — clear any stale format from a prior CONDITIONING gym.
+        _nextWorkoutFormat.value = null
         viewModelScope.launch {
             _nextWorkoutType.value = generateWorkoutUseCase.predictNextType(gymId)
+        }
+    }
+
+    /**
+     * Flips the previewed workout for the current gym. On strength gyms this
+     * toggles PUSH ↔ PULL; on conditioning gyms it toggles EMOM ↔ AMRAP. The
+     * flip is session-local — the next updateNextType (after gym switch or
+     * workout completion) recomputes from scratch.
+     */
+    fun skip() {
+        when (_selectedGymStyle.value) {
+            GymWorkoutStyle.CONDITIONING -> {
+                _nextWorkoutFormat.value = when (_nextWorkoutFormat.value) {
+                    WorkoutFormat.AMRAP -> WorkoutFormat.EMOM
+                    else -> WorkoutFormat.AMRAP
+                }
+            }
+            GymWorkoutStyle.STRENGTH -> {
+                _nextWorkoutType.value = when (_nextWorkoutType.value) {
+                    WorkoutType.PUSH -> WorkoutType.PULL
+                    WorkoutType.PULL -> WorkoutType.PUSH
+                }
+            }
+            null -> Unit
         }
     }
     

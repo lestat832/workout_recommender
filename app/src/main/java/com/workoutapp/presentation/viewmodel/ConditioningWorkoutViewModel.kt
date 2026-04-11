@@ -32,6 +32,13 @@ class ConditioningWorkoutViewModel @Inject constructor(
 
     private val gymId: Long? = savedStateHandle["gymId"]
 
+    // Optional skip-button override. Null for the normal flow; populated when
+    // the user taps "Skip" on the NextWorkoutCard and nav passes ?format=EMOM/AMRAP.
+    private val formatOverride: WorkoutFormat? =
+        savedStateHandle.get<String>("format")
+            ?.takeIf { it.isNotBlank() }
+            ?.let { runCatching { WorkoutFormat.valueOf(it) }.getOrNull() }
+
     private val _uiState = MutableStateFlow(ConditioningUiState())
     val uiState: StateFlow<ConditioningUiState> = _uiState.asStateFlow()
 
@@ -46,7 +53,7 @@ class ConditioningWorkoutViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true)
             try {
                 val id = gymId ?: error("gymId missing from SavedStateHandle")
-                val generated = generateConditioningWorkoutUseCase(id)
+                val generated = generateConditioningWorkoutUseCase(id, formatOverride)
 
                 val workoutId = UUID.randomUUID().toString()
                 // Honor the existing debug date offset pattern used by the

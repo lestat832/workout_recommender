@@ -31,6 +31,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.workoutapp.domain.model.Gym
 import com.workoutapp.domain.model.GymWorkoutStyle
 import com.workoutapp.domain.model.Workout
+import com.workoutapp.domain.model.WorkoutFormat
 import com.workoutapp.domain.model.WorkoutType
 import com.workoutapp.presentation.viewmodel.HomeViewModel
 import com.workoutapp.presentation.viewmodel.ImportState
@@ -57,7 +58,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     stravaAuthViewModel: com.workoutapp.presentation.settings.StravaAuthViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
-    onStartWorkout: (Long, GymWorkoutStyle) -> Unit,
+    onStartWorkout: (Long, GymWorkoutStyle, WorkoutType?, WorkoutFormat?) -> Unit,
     onNavigateToSettings: () -> Unit = {}
 ) {
     val recentWorkouts by viewModel.recentWorkouts.collectAsState()
@@ -67,6 +68,7 @@ fun HomeScreen(
     val selectedGymId by viewModel.selectedGymId.collectAsState()
     val nextWorkoutType by viewModel.nextWorkoutType.collectAsState()
     val selectedGymStyle by viewModel.selectedGymStyle.collectAsState()
+    val nextWorkoutFormat by viewModel.nextWorkoutFormat.collectAsState()
 
     var showDebugMenu by remember { mutableStateOf(false) }
     var showSettingsMenu by remember { mutableStateOf(false) }
@@ -401,15 +403,20 @@ fun HomeScreen(
 
             NextWorkoutCard(
                 nextWorkoutType = nextWorkoutType,
+                nextWorkoutFormat = nextWorkoutFormat,
                 gymStyle = selectedGymStyle,
                 dateOffset = testDateOffset,
                 onTap = {
                     val id = selectedGymId
                     val style = selectedGymStyle
                     if (id != null && style != null) {
-                        onStartWorkout(id, style)
+                        // Always forward the currently-previewed type/format as
+                        // an override so what the user sees on the card is what
+                        // the use case generates — whether or not skip was hit.
+                        onStartWorkout(id, style, nextWorkoutType, nextWorkoutFormat)
                     }
-                }
+                },
+                onSkip = { viewModel.skip() }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -563,9 +570,11 @@ fun GymSelector(
 @Composable
 fun NextWorkoutCard(
     nextWorkoutType: WorkoutType,
+    nextWorkoutFormat: WorkoutFormat?,
     gymStyle: GymWorkoutStyle?,
     dateOffset: Int = 0,
-    onTap: () -> Unit = {}
+    onTap: () -> Unit = {},
+    onSkip: () -> Unit = {}
 ) {
     val dateFormat = SimpleDateFormat("EEEE, MMMM d", Locale.getDefault())
     val calendar = Calendar.getInstance()
@@ -602,11 +611,20 @@ fun NextWorkoutCard(
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
 
             val (title, subtitle) = when (gymStyle) {
-                GymWorkoutStyle.CONDITIONING -> "Pack Run" to "EMOM or AMRAP • 20 min"
+                // Conditioning gyms reveal the resolved format so skip has
+                // something to flip against. EMOM is 20 min (4 stations × 5
+                // rounds, built-in rest per 60s), AMRAP is 15 min
+                // (continuous metcon pace). Falls back to the combined hint
+                // if the VM hasn't seeded a format yet.
+                GymWorkoutStyle.CONDITIONING -> "Pack Run" to when (nextWorkoutFormat) {
+                    WorkoutFormat.EMOM -> "EMOM • 20 min"
+                    WorkoutFormat.AMRAP -> "AMRAP • 15 min"
+                    else -> "EMOM 20 min or AMRAP 15 min"
+                }
                 else -> when (nextWorkoutType) {
                     WorkoutType.PUSH -> "Alpha Training" to "Chest • Shoulders • Triceps"
                     WorkoutType.PULL -> "Pack Strength" to "Legs • Back • Biceps"
@@ -627,11 +645,29 @@ fun NextWorkoutCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Text(
-                text = "Tap to begin the hunt →",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
-            )
+            // Nested Skip button resolves via hit-testing: the TextButton
+            // consumes its click, the rest of the card still triggers onTap.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Tap to begin the hunt →",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                )
+                TextButton(
+                    onClick = onSkip,
+                    enabled = canStart
+                ) {
+                    Text(
+                        text = "Skip",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
         }
     }
 }

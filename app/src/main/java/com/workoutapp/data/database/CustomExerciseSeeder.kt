@@ -136,20 +136,6 @@ object CustomExerciseSeeder {
 
         // Medicine ball
         Exercise(
-            id = "custom_med_ball_slam",
-            name = "Medicine Ball Slam",
-            muscleGroups = listOf(MuscleGroup.BACK, MuscleGroup.CORE),
-            equipment = "Medicine Ball",
-            category = WorkoutType.PULL,
-            exerciseCategory = ExerciseCategory.STRENGTH_PULL,
-            instructions = listOf(
-                "Hold the medicine ball overhead with arms extended.",
-                "Engage the lats and core and slam the ball to the floor.",
-                "Squat to pick up the ball and return to the overhead position.",
-                "Keep the movement explosive on every rep."
-            )
-        ),
-        Exercise(
             id = "custom_med_ball_chest_pass",
             name = "Medicine Ball Chest Pass",
             muscleGroups = listOf(MuscleGroup.CHEST, MuscleGroup.TRICEP),

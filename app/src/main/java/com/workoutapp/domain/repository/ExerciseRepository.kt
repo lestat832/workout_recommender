@@ -19,4 +19,5 @@ interface ExerciseRepository {
     suspend fun getCustomExerciseByName(name: String): Exercise?
     fun getCustomExercises(): Flow<List<Exercise>>
     suspend fun backfillExerciseCategories()
+    suspend fun reclassifyCardioByName()
 }

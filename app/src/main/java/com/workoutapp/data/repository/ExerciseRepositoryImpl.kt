@@ -60,6 +60,10 @@ class ExerciseRepositoryImpl @Inject constructor(
         exerciseDao.backfillCoreCategory()
     }
 
+    override suspend fun reclassifyCardioByName() {
+        exerciseDao.reclassifyCardioByName()
+    }
+
     override suspend fun getUserActiveExercisesByType(workoutType: WorkoutType): List<Exercise> {
         return exerciseDao.getUserActiveExercisesByType(workoutType).map { it.toDomain() }
     }

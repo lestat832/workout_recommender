@@ -3,6 +3,8 @@ package com.workoutapp.domain.usecase
 import android.content.Context
 import android.content.SharedPreferences
 import com.workoutapp.data.database.CustomExerciseSeeder
+import com.workoutapp.data.database.HomeGymCatalogSeeder
+import com.workoutapp.data.database.HomeGymMovementCatalog
 import com.workoutapp.data.repository.ExerciseRepositoryImpl
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +29,8 @@ class InitializeExercisesUseCase @Inject constructor(
         private const val KEY_EXERCISE_COUNT = "exercise_count"
         private const val KEY_CATEGORY_BACKFILLED = "exercise_category_backfilled"
         private const val KEY_CONDITIONING_EXERCISES_SEEDED = "conditioning_exercises_seeded"
+        private const val KEY_CARDIO_NAMES_RECLASSIFIED = "cardio_names_reclassified"
+        private const val KEY_HOME_GYM_CATALOG_SEEDED = "home_gym_catalog_seeded"
     }
 
     /**
@@ -64,11 +68,40 @@ class InitializeExercisesUseCase @Inject constructor(
                 prefs.edit().putBoolean(KEY_CATEGORY_BACKFILLED, true).apply()
             }
 
-            // Phase 3: one-time seed of the custom conditioning exercises
-            // (TRX, medicine ball, ab wheel, and cardio stations).
+            // Phase 3: one-time seed of the original custom conditioning exercises
+            // (TRX, medicine ball, ab wheel, cardio stations). Most of these are
+            // superseded by the Phase 3.1 catalog below, but we still insert them
+            // so IDs stay stable for any historical workouts that reference them.
             if (!prefs.getBoolean(KEY_CONDITIONING_EXERCISES_SEEDED, false)) {
                 exerciseRepository.insertExercises(CustomExerciseSeeder.exercises)
                 prefs.edit().putBoolean(KEY_CONDITIONING_EXERCISES_SEEDED, true).apply()
+            }
+
+            // Phase 3.1 fix 1: reclassify cardio/plyometric exercises that were
+            // previously miscategorized as STRENGTH_LEGS or similar due to their
+            // muscle group tags (e.g., "Fast Skipping" showing up on pull day).
+            // Runs once per install regardless of the backfill flag.
+            if (!prefs.getBoolean(KEY_CARDIO_NAMES_RECLASSIFIED, false)) {
+                exerciseRepository.reclassifyCardioByName()
+                prefs.edit().putBoolean(KEY_CARDIO_NAMES_RECLASSIFIED, true).apply()
+            }
+
+            // Phase 3.1 fix 2: seed the Home Gym movement catalog and activate
+            // everything (catalog + Phase 3 orphans) in user_exercises. The
+            // original Phase 3 seed inserted rows into `exercises` but never
+            // marked them active in `user_exercises`, so the generator's join
+            // filtered them out — that's the "No exercises available" error.
+            // This gate fixes both: the new catalog AND the old orphans.
+            if (!prefs.getBoolean(KEY_HOME_GYM_CATALOG_SEEDED, false)) {
+                val catalogExercises = HomeGymCatalogSeeder.buildExercises()
+                exerciseRepository.insertExercises(catalogExercises)
+
+                val catalogIds = HomeGymMovementCatalog.movements.map { it.id }
+                val phase3OrphanIds = CustomExerciseSeeder.exercises.map { it.id }
+                val allIds = (catalogIds + phase3OrphanIds).distinct()
+                exerciseRepository.setUserExercises(allIds)
+
+                prefs.edit().putBoolean(KEY_HOME_GYM_CATALOG_SEEDED, true).apply()
             }
 
             Result.success(count)

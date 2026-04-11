@@ -26,7 +26,7 @@ object ExerciseMapper {
             muscleGroups = muscles,
             equipment = mapEquipment(this.equipment),
             category = legacyCategory,
-            exerciseCategory = ExerciseCategory.deriveFrom(muscles, legacyCategory),
+            exerciseCategory = ExerciseCategory.deriveFrom(muscles, legacyCategory, this.name),
             imageUrl = mapImageUrl(this.images),
             instructions = this.instructions
         )
@@ -44,7 +44,7 @@ object ExerciseMapper {
             muscleGroups = muscles,
             equipment = mapEquipment(this.equipment),
             category = legacyCategory,
-            exerciseCategory = ExerciseCategory.deriveFrom(muscles, legacyCategory),
+            exerciseCategory = ExerciseCategory.deriveFrom(muscles, legacyCategory, this.name),
             imageUrl = mapImageUrl(this.images),
             instructions = this.instructions,
             isUserCreated = false,

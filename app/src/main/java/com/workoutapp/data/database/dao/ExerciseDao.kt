@@ -22,7 +22,7 @@ interface ExerciseDao {
     suspend fun getUserActiveExercisesByType(workoutType: WorkoutType): List<ExerciseEntity>
 
     @Query("""
-        SELECT e.* FROM exercises e
+        SELECT DISTINCT e.* FROM exercises e
         INNER JOIN user_exercises ue ON e.id = ue.exerciseId
         WHERE ue.isActive = 1 AND e.exerciseCategory IN (:categories)
     """)
@@ -41,6 +41,28 @@ interface ExerciseDao {
 
     @Query("UPDATE exercises SET exerciseCategory = 'CORE' WHERE muscleGroups LIKE '%CORE%' AND exerciseCategory != 'STRENGTH_LEGS'")
     suspend fun backfillCoreCategory()
+
+    /**
+     * Reclassifies cardio/plyometric exercises that were previously bucketed
+     * as strength due to having LEGS or CORE in their muscle groups. Matches
+     * on name fragments so exercises like "Fast Skipping", "Jumping Jack",
+     * "Burpee", etc. get tagged as CARDIO_CONDITIONING regardless of their
+     * original muscle group assignment.
+     */
+    @Query("""
+        UPDATE exercises
+        SET exerciseCategory = 'CARDIO_CONDITIONING'
+        WHERE LOWER(name) LIKE '%skipping%'
+           OR LOWER(name) LIKE '%jump rope%'
+           OR LOWER(name) LIKE '%jumping jack%'
+           OR LOWER(name) LIKE '%mountain climber%'
+           OR LOWER(name) LIKE '%high knee%'
+           OR LOWER(name) LIKE '%burpee%'
+           OR LOWER(name) LIKE '%sprint%'
+           OR LOWER(name) LIKE '%running%'
+           OR LOWER(name) LIKE '%skater%'
+    """)
+    suspend fun reclassifyCardioByName()
     
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExercises(exercises: List<ExerciseEntity>)

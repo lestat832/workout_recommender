@@ -204,21 +204,6 @@ fun HomeScreen(
                 }
             )
         },
-        floatingActionButton = {
-            val enabled = selectedGymId != null && selectedGymStyle != null
-            ExtendedFloatingActionButton(
-                onClick = {
-                    val id = selectedGymId
-                    val style = selectedGymStyle
-                    if (id != null && style != null) {
-                        onStartWorkout(id, style)
-                    }
-                },
-                icon = { Icon(Icons.Default.Add, contentDescription = "Start Workout") },
-                text = { Text("Begin the Hunt") },
-                modifier = Modifier.alpha(if (enabled) 1f else 0.5f)
-            )
-        }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -414,7 +399,18 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            NextWorkoutCard(nextWorkoutType, selectedGymStyle, testDateOffset)
+            NextWorkoutCard(
+                nextWorkoutType = nextWorkoutType,
+                gymStyle = selectedGymStyle,
+                dateOffset = testDateOffset,
+                onTap = {
+                    val id = selectedGymId
+                    val style = selectedGymStyle
+                    if (id != null && style != null) {
+                        onStartWorkout(id, style)
+                    }
+                }
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
             
@@ -568,15 +564,19 @@ fun GymSelector(
 fun NextWorkoutCard(
     nextWorkoutType: WorkoutType,
     gymStyle: GymWorkoutStyle?,
-    dateOffset: Int = 0
+    dateOffset: Int = 0,
+    onTap: () -> Unit = {}
 ) {
     val dateFormat = SimpleDateFormat("EEEE, MMMM d", Locale.getDefault())
     val calendar = Calendar.getInstance()
     calendar.add(Calendar.DAY_OF_YEAR, dateOffset)
     val today = calendar.time
-    
+    val canStart = gymStyle != null
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = canStart, onClick = onTap),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer
         )
@@ -623,6 +623,14 @@ fun NextWorkoutCard(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Tap to begin the hunt →",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
             )
         }
     }

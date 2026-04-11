@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
         StravaAuthEntity::class,
         GymEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 @TypeConverters(DateConverter::class, SetListConverter::class, StringListConverter::class, MuscleGroupListConverter::class)
@@ -139,6 +139,31 @@ abstract class WorkoutDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Add workout format columns (nullable except format).
+                db.execSQL("ALTER TABLE workouts ADD COLUMN format TEXT NOT NULL DEFAULT 'STRENGTH'")
+                db.execSQL("ALTER TABLE workouts ADD COLUMN durationMinutes INTEGER")
+                db.execSQL("ALTER TABLE workouts ADD COLUMN completedRounds INTEGER")
+
+                // Transition the Phase 1 Home Gym row to conditioning style and
+                // expand its equipment list to the real home inventory. Targets
+                // only the exact Phase 1 shape so users who customized their
+                // Home Gym are left alone.
+                val homeEquipment = "Dumbbell,Bodyweight,Suspension Trainer,Medicine Ball,Ab Wheel,Indoor Rower,Indoor Bike,Jump Rope"
+                db.execSQL(
+                    """
+                    UPDATE gyms
+                    SET equipmentList = '$homeEquipment',
+                        workoutStyle = 'CONDITIONING'
+                    WHERE name = 'Home Gym'
+                      AND workoutStyle = 'STRENGTH'
+                      AND equipmentList = 'Dumbbell,Bodyweight'
+                    """
+                )
+            }
+        }
+
         private val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // Phase 0: taxonomy foundation.
@@ -180,7 +205,7 @@ abstract class WorkoutDatabase : RoomDatabase() {
                     WorkoutDatabase::class.java,
                     "workout_database"
                 )
-                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                     // Allow destructive recovery only for hypothetical pre-v3 installs
                     // (the project has no committed v1/v2 migrations and has shipped
                     // v3+ since its earliest tracked schema). Any unhandled v3+ upgrade
@@ -194,7 +219,7 @@ abstract class WorkoutDatabase : RoomDatabase() {
                             // in the app startup to avoid blocking database creation.
                             val now = System.currentTimeMillis()
                             val lmuEquipment = "Barbell,Dumbbell,Cable,Machine,Bodyweight,Bench,Smith Machine,Kettlebell,Resistance Band,None,Other"
-                            val homeEquipment = "Dumbbell,Bodyweight"
+                            val homeEquipment = "Dumbbell,Bodyweight,Suspension Trainer,Medicine Ball,Ab Wheel,Indoor Rower,Indoor Bike,Jump Rope"
                             db.execSQL(
                                 """
                                 INSERT INTO gyms (name, equipmentList, isDefault, createdAt, workoutStyle)
@@ -204,7 +229,7 @@ abstract class WorkoutDatabase : RoomDatabase() {
                             db.execSQL(
                                 """
                                 INSERT INTO gyms (name, equipmentList, isDefault, createdAt, workoutStyle)
-                                VALUES ('Home Gym', '$homeEquipment', 0, $now, 'STRENGTH')
+                                VALUES ('Home Gym', '$homeEquipment', 0, $now, 'CONDITIONING')
                                 """
                             )
                         }

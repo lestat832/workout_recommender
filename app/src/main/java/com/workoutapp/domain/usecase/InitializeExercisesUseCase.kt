@@ -2,6 +2,7 @@ package com.workoutapp.domain.usecase
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.workoutapp.data.database.CustomExerciseSeeder
 import com.workoutapp.data.repository.ExerciseRepositoryImpl
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +26,7 @@ class InitializeExercisesUseCase @Inject constructor(
         private const val KEY_EXERCISES_INITIALIZED = "exercises_initialized"
         private const val KEY_EXERCISE_COUNT = "exercise_count"
         private const val KEY_CATEGORY_BACKFILLED = "exercise_category_backfilled"
+        private const val KEY_CONDITIONING_EXERCISES_SEEDED = "conditioning_exercises_seeded"
     }
 
     /**
@@ -60,6 +62,13 @@ class InitializeExercisesUseCase @Inject constructor(
             if (!prefs.getBoolean(KEY_CATEGORY_BACKFILLED, false)) {
                 exerciseRepository.backfillExerciseCategories()
                 prefs.edit().putBoolean(KEY_CATEGORY_BACKFILLED, true).apply()
+            }
+
+            // Phase 3: one-time seed of the custom conditioning exercises
+            // (TRX, medicine ball, ab wheel, and cardio stations).
+            if (!prefs.getBoolean(KEY_CONDITIONING_EXERCISES_SEEDED, false)) {
+                exerciseRepository.insertExercises(CustomExerciseSeeder.exercises)
+                prefs.edit().putBoolean(KEY_CONDITIONING_EXERCISES_SEEDED, true).apply()
             }
 
             Result.success(count)

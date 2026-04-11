@@ -8,6 +8,9 @@ data class Workout(
     val type: WorkoutType,
     val status: WorkoutStatus,
     val gymId: Long? = null,
+    val format: WorkoutFormat = WorkoutFormat.STRENGTH,
+    val durationMinutes: Int? = null,
+    val completedRounds: Int? = null,
     val exercises: List<WorkoutExercise> = emptyList()
 )
 

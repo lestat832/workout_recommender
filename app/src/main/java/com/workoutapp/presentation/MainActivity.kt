@@ -18,9 +18,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.workoutapp.domain.model.GymWorkoutStyle
 import com.workoutapp.presentation.ui.home.HomeScreen
 import com.workoutapp.presentation.ui.onboarding.OnboardingScreen
 import com.workoutapp.presentation.ui.theme.WorkoutAppTheme
+import com.workoutapp.presentation.ui.workout.ConditioningWorkoutScreen
 import com.workoutapp.presentation.ui.workout.WorkoutScreen
 import com.workoutapp.presentation.ui.workout.AddExerciseScreen
 import com.workoutapp.presentation.ui.workout.CreateExerciseScreen
@@ -102,8 +104,12 @@ fun WorkoutNavigation(
         
         composable("home") {
             HomeScreen(
-                onStartWorkout = { gymId ->
-                    navController.navigate("workout/$gymId")
+                onStartWorkout = { gymId, style ->
+                    val route = when (style) {
+                        GymWorkoutStyle.CONDITIONING -> "conditioning_workout/$gymId"
+                        GymWorkoutStyle.STRENGTH -> "workout/$gymId"
+                    }
+                    navController.navigate(route)
                 },
                 onNavigateToSettings = {
                     navController.navigate("settings")
@@ -134,6 +140,19 @@ fun WorkoutNavigation(
                     navController.currentBackStackEntry?.savedStateHandle?.set("onExerciseSelected", onExerciseSelected)
                     val exerciseIdsParam = if (exerciseIds.isEmpty()) "none" else exerciseIds.joinToString(",")
                     navController.navigate("addExercise/${workoutType}/${exerciseIdsParam}")
+                }
+            )
+        }
+
+        composable(
+            route = "conditioning_workout/{gymId}",
+            arguments = listOf(navArgument("gymId") { type = NavType.LongType })
+        ) {
+            ConditioningWorkoutScreen(
+                onWorkoutComplete = {
+                    navController.navigate("home") {
+                        popUpTo("conditioning_workout/{gymId}") { inclusive = true }
+                    }
                 }
             )
         }

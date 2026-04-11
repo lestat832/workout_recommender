@@ -23,7 +23,10 @@ class WorkoutRepositoryImpl @Inject constructor(
             date = workout.date,
             type = workout.type,
             status = workout.status,
-            gymId = workout.gymId
+            gymId = workout.gymId,
+            format = workout.format,
+            durationMinutes = workout.durationMinutes,
+            completedRounds = workout.completedRounds
         )
         workoutDao.insertWorkout(workoutEntity)
         return workout.id
@@ -35,7 +38,10 @@ class WorkoutRepositoryImpl @Inject constructor(
             date = workout.date,
             type = workout.type,
             status = workout.status,
-            gymId = workout.gymId
+            gymId = workout.gymId,
+            format = workout.format,
+            durationMinutes = workout.durationMinutes,
+            completedRounds = workout.completedRounds
         )
         workoutDao.updateWorkout(workoutEntity)
     }
@@ -72,6 +78,20 @@ class WorkoutRepositoryImpl @Inject constructor(
     override suspend fun getLastCompletedWorkoutByGym(gymId: Long): Workout? {
         val workoutEntity = workoutDao.getLastCompletedWorkoutByGym(gymId) ?: return null
         return getWorkoutById(workoutEntity.id)
+    }
+
+    override suspend fun getConditioningWorkoutsInMonth(gymId: Long): List<Workout> {
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        val monthStart = cal.time
+        cal.add(Calendar.MONTH, 1)
+        val monthEnd = cal.time
+        val entities = workoutDao.getConditioningWorkoutsInRange(gymId, monthStart, monthEnd)
+        return entities.mapNotNull { getWorkoutById(it.id) }
     }
 
     override fun getWorkoutsByStatus(status: WorkoutStatus): Flow<List<Workout>> {
@@ -119,6 +139,9 @@ class WorkoutRepositoryImpl @Inject constructor(
         type = type,
         status = status,
         gymId = gymId,
+        format = format,
+        durationMinutes = durationMinutes,
+        completedRounds = completedRounds,
         exercises = exercises
     )
 

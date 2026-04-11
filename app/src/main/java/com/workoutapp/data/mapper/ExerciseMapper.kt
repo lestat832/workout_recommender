@@ -98,6 +98,11 @@ object ExerciseMapper {
             "e-z curl bar" -> "EZ Bar"
             "foam roll" -> "Foam Roller"
             "medicine ball" -> "Medicine Ball"
+            "trx", "suspension trainer" -> "Suspension Trainer"
+            "ab wheel", "ab roller" -> "Ab Wheel"
+            "rower", "rowing machine" -> "Indoor Rower"
+            "stationary bike", "exercise bike", "assault bike" -> "Indoor Bike"
+            "jump rope", "skipping rope" -> "Jump Rope"
             "other" -> "Other"
             else -> equipment.replaceFirstChar { it.uppercase() }
         }

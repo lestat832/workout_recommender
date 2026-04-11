@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.workoutapp.domain.model.Gym
+import com.workoutapp.domain.model.GymWorkoutStyle
 import com.workoutapp.domain.model.Workout
 import com.workoutapp.domain.model.WorkoutType
 import com.workoutapp.presentation.viewmodel.HomeViewModel
@@ -56,7 +57,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     stravaAuthViewModel: com.workoutapp.presentation.settings.StravaAuthViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
-    onStartWorkout: (Long) -> Unit,
+    onStartWorkout: (Long, GymWorkoutStyle) -> Unit,
     onNavigateToSettings: () -> Unit = {}
 ) {
     val recentWorkouts by viewModel.recentWorkouts.collectAsState()
@@ -65,6 +66,7 @@ fun HomeScreen(
     val gyms by viewModel.gyms.collectAsState()
     val selectedGymId by viewModel.selectedGymId.collectAsState()
     val nextWorkoutType by viewModel.nextWorkoutType.collectAsState()
+    val selectedGymStyle by viewModel.selectedGymStyle.collectAsState()
 
     var showDebugMenu by remember { mutableStateOf(false) }
     var showSettingsMenu by remember { mutableStateOf(false) }
@@ -203,9 +205,15 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            val enabled = selectedGymId != null
+            val enabled = selectedGymId != null && selectedGymStyle != null
             ExtendedFloatingActionButton(
-                onClick = { selectedGymId?.let(onStartWorkout) },
+                onClick = {
+                    val id = selectedGymId
+                    val style = selectedGymStyle
+                    if (id != null && style != null) {
+                        onStartWorkout(id, style)
+                    }
+                },
                 icon = { Icon(Icons.Default.Add, contentDescription = "Start Workout") },
                 text = { Text("Begin the Hunt") },
                 modifier = Modifier.alpha(if (enabled) 1f else 0.5f)
@@ -406,7 +414,7 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            NextWorkoutCard(nextWorkoutType, testDateOffset)
+            NextWorkoutCard(nextWorkoutType, selectedGymStyle, testDateOffset)
 
             Spacer(modifier = Modifier.height(24.dp))
             
@@ -557,7 +565,11 @@ fun GymSelector(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NextWorkoutCard(nextWorkoutType: WorkoutType, dateOffset: Int = 0) {
+fun NextWorkoutCard(
+    nextWorkoutType: WorkoutType,
+    gymStyle: GymWorkoutStyle?,
+    dateOffset: Int = 0
+) {
     val dateFormat = SimpleDateFormat("EEEE, MMMM d", Locale.getDefault())
     val calendar = Calendar.getInstance()
     calendar.add(Calendar.DAY_OF_YEAR, dateOffset)
@@ -592,21 +604,23 @@ fun NextWorkoutCard(nextWorkoutType: WorkoutType, dateOffset: Int = 0) {
             }
             
             Spacer(modifier = Modifier.height(8.dp))
-            
+
+            val (title, subtitle) = when (gymStyle) {
+                GymWorkoutStyle.CONDITIONING -> "Pack Run" to "EMOM or AMRAP • 20 min"
+                else -> when (nextWorkoutType) {
+                    WorkoutType.PUSH -> "Alpha Training" to "Chest • Shoulders • Triceps"
+                    WorkoutType.PULL -> "Pack Strength" to "Legs • Back • Biceps"
+                }
+            }
+
             Text(
-                text = when (nextWorkoutType) {
-                    WorkoutType.PUSH -> "Alpha Training"
-                    WorkoutType.PULL -> "Pack Strength"
-                },
+                text = title,
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-            
+
             Text(
-                text = when (nextWorkoutType) {
-                    WorkoutType.PUSH -> "Chest • Shoulders • Triceps"
-                    WorkoutType.PULL -> "Legs • Back • Biceps"
-                },
+                text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
             )

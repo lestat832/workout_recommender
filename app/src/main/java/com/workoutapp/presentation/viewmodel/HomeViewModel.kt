@@ -3,6 +3,7 @@ package com.workoutapp.presentation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.workoutapp.domain.model.Gym
+import com.workoutapp.domain.model.GymWorkoutStyle
 import com.workoutapp.domain.model.Workout
 import com.workoutapp.domain.model.WorkoutStatus
 import com.workoutapp.domain.model.WorkoutType
@@ -50,6 +51,9 @@ class HomeViewModel @Inject constructor(
 
     private val _nextWorkoutType = MutableStateFlow(WorkoutType.PULL)
     val nextWorkoutType: StateFlow<WorkoutType> = _nextWorkoutType.asStateFlow()
+
+    private val _selectedGymStyle = MutableStateFlow<GymWorkoutStyle?>(null)
+    val selectedGymStyle: StateFlow<GymWorkoutStyle?> = _selectedGymStyle.asStateFlow()
 
     init {
         loadLastWorkout()
@@ -103,6 +107,10 @@ class HomeViewModel @Inject constructor(
 
     private fun updateNextType(gymId: Long?) {
         if (gymId == null) return
+        // Update the style first so HomeScreen can branch the card even before
+        // the predict call resolves (conditioning gyms don't need prediction).
+        _selectedGymStyle.value = _gyms.value.firstOrNull { it.id == gymId }?.workoutStyle
+        if (_selectedGymStyle.value == GymWorkoutStyle.CONDITIONING) return
         viewModelScope.launch {
             _nextWorkoutType.value = generateWorkoutUseCase.predictNextType(gymId)
         }

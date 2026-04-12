@@ -9,6 +9,7 @@ import com.workoutapp.domain.repository.ExerciseRepository
 import com.workoutapp.domain.repository.WorkoutRepository
 import com.workoutapp.domain.usecase.GenerateWorkoutUseCase
 import com.workoutapp.domain.usecase.ProfileComputerUseCase
+import com.workoutapp.data.sync.StravaSyncManager
 import com.workoutapp.domain.usecase.StrengthSetPrescriber
 import com.workoutapp.domain.usecase.toWorkoutPrescription
 import com.workoutapp.domain.repository.TrainingProfileRepository
@@ -30,7 +31,8 @@ class WorkoutViewModel @Inject constructor(
     private val exerciseRepository: ExerciseRepository,
     private val generateWorkoutUseCase: GenerateWorkoutUseCase,
     private val profileComputerUseCase: ProfileComputerUseCase,
-    private val profileRepository: TrainingProfileRepository
+    private val profileRepository: TrainingProfileRepository,
+    private val stravaSyncManager: StravaSyncManager
 ) : AndroidViewModel(application) {
 
     private val gymId: Long? = savedStateHandle["gymId"]
@@ -57,6 +59,20 @@ class WorkoutViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true)
 
             try {
+                // Check for an existing IN_PROGRESS strength workout at this gym
+                val existingWorkout = gymId?.let { workoutRepository.getInProgressStrengthWorkout(it) }
+                if (existingWorkout != null && existingWorkout.exercises.isNotEmpty()) {
+                    currentWorkout = existingWorkout
+                    workoutStartTime = existingWorkout.date.time
+                    val prescriptions = buildPrescriptions(existingWorkout.exercises)
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        exercises = existingWorkout.exercises,
+                        prescriptions = prescriptions
+                    )
+                    return@launch
+                }
+
                 val generated = generateWorkoutUseCase(gymId, typeOverride)
                 if (generated.exercises.isEmpty()) {
                     _uiState.value = _uiState.value.copy(
@@ -67,11 +83,8 @@ class WorkoutViewModel @Inject constructor(
                 }
 
                 val workoutId = UUID.randomUUID().toString()
-                // Type comes from the use case (single source of truth) — the VM
-                // no longer recomputes alternation independently.
                 val workoutType = generated.type
 
-                // Get date offset from shared preferences for testing
                 val prefs = getApplication<Application>().getSharedPreferences("debug_prefs", android.content.Context.MODE_PRIVATE)
                 val dateOffset = prefs.getInt("date_offset", 0)
                 val calendar = Calendar.getInstance()
@@ -92,14 +105,10 @@ class WorkoutViewModel @Inject constructor(
                         )
                     }
                 )
-                
+
                 workoutRepository.createWorkout(workout)
                 currentWorkout = workout
 
-                // Build per-exercise 10x-trainer prescriptions using the last
-                // two completed sessions of each exercise. Position-based
-                // defaults kick in for first-time exercises; history-based
-                // progression activates once 2+ sessions are on record.
                 val prescriptions = buildPrescriptions(workout.exercises)
 
                 _uiState.value = _uiState.value.copy(
@@ -382,6 +391,7 @@ class WorkoutViewModel @Inject constructor(
 
                 // Update training profile
                 profileComputerUseCase.updateAfterWorkout(completedWorkout.id)
+                stravaSyncManager.queueWorkout(completedWorkout.id)
 
                 _uiState.value = _uiState.value.copy(isCompleted = true)
             }

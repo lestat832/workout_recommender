@@ -3,7 +3,9 @@ package com.workoutapp.domain.formatter
 import com.workoutapp.domain.model.MuscleGroup
 import com.workoutapp.domain.model.Workout
 import com.workoutapp.domain.model.WorkoutExercise
+import com.workoutapp.domain.model.WorkoutFormat
 import com.workoutapp.domain.model.WorkoutType
+import com.workoutapp.domain.usecase.RepPrescriber
 import kotlin.math.roundToInt
 
 /**
@@ -28,9 +30,20 @@ import kotlin.math.roundToInt
 object StravaDescriptionFormatter {
 
     /**
-     * Format workout into detailed Strava description with muscle group organization
+     * Format workout into detailed Strava description, branching on workout format
      */
     fun format(
+        workout: Workout,
+        startTime: Long? = null,
+        endTime: Long? = null
+    ): String {
+        return when (workout.format) {
+            WorkoutFormat.EMOM, WorkoutFormat.AMRAP -> formatConditioning(workout)
+            else -> formatStrength(workout, startTime, endTime)
+        }
+    }
+
+    private fun formatStrength(
         workout: Workout,
         startTime: Long? = null,
         endTime: Long? = null
@@ -61,6 +74,39 @@ object StravaDescriptionFormatter {
                 val durationMinutes = calculateDuration(startTime, endTime)
                 appendLine("Duration: $durationMinutes minutes")
             }
+        }.trim()
+    }
+
+    private fun formatConditioning(workout: Workout): String {
+        val sessionIds = workout.exercises.map { it.exercise.id }
+
+        return buildString {
+            appendLine("\uD83D\uDD25 ${workout.format.name} Workout (${workout.durationMinutes} min)")
+            appendLine()
+
+            appendLine("Exercises:")
+            workout.exercises.forEach { we ->
+                val prescription = RepPrescriber.prescribe(
+                    exerciseId = we.exercise.id,
+                    format = workout.format,
+                    sessionIds = sessionIds
+                )
+                val display = if (prescription.contains("m row") || prescription.contains("m Row")) {
+                    "• ${prescription.replaceFirstChar { it.uppercase() }}"
+                } else {
+                    "• ${we.exercise.name} ($prescription)"
+                }
+                appendLine(display)
+            }
+            appendLine()
+
+            if (workout.format == WorkoutFormat.AMRAP && workout.completedRounds != null) {
+                appendLine("Completed: ${workout.completedRounds} rounds")
+            } else {
+                appendLine("Duration: ${workout.durationMinutes} minutes")
+            }
+            appendLine()
+            appendLine("Logged with Fortis Lupus \uD83D\uDC3A")
         }.trim()
     }
 

@@ -133,6 +133,26 @@ class WorkoutRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun reassignWorkouts(oldGymId: Long, newGymId: Long) {
+        workoutDao.reassignWorkouts(oldGymId, newGymId)
+    }
+
+    override suspend fun getInProgressStrengthWorkout(gymId: Long): Workout? {
+        val entity = workoutDao.getInProgressStrengthWorkout(gymId) ?: return null
+        return getWorkoutById(entity.id)
+    }
+
+    override suspend fun getInProgressConditioningWorkout(gymId: Long): Workout? {
+        val entity = workoutDao.getInProgressConditioningWorkout(gymId) ?: return null
+        return getWorkoutById(entity.id)
+    }
+
+    override fun getCompletedWorkoutsByGym(gymId: Long): Flow<List<Workout>> {
+        return workoutDao.getCompletedWorkoutsByGym(gymId).map { workouts ->
+            workouts.map { it.toDomain(emptyList()) }
+        }
+    }
+
     override fun getAllWorkouts(): Flow<List<Workout>> {
         return workoutDao.getAllWorkouts().map { workouts ->
             workouts.map { it.toDomain(emptyList()) }

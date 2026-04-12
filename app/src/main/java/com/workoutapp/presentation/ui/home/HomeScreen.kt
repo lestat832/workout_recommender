@@ -697,7 +697,11 @@ fun WorkoutHistoryCard(workout: Workout, viewModel: HomeViewModel) {
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "${workout.type.name} Workout",
+                        text = if (workout.format == WorkoutFormat.AMRAP || workout.format == WorkoutFormat.EMOM) {
+                            "${workout.format.name} Workout"
+                        } else {
+                            "${workout.type.name} Workout"
+                        },
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium
                     )
@@ -718,6 +722,19 @@ fun WorkoutHistoryCard(workout: Workout, viewModel: HomeViewModel) {
                             )
                             Text(
                                 text = "${String.format("%,.0f", totalWeight)} lbs total",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        if ((workout.format == WorkoutFormat.AMRAP || workout.format == WorkoutFormat.EMOM) && workout.completedRounds != null) {
+                            Text(
+                                text = "•",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "${workout.completedRounds} rounds",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Medium

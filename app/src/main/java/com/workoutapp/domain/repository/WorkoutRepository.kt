@@ -20,4 +20,8 @@ interface WorkoutRepository {
     suspend fun getExerciseIdsFromLastWeek(): List<String>
     fun getAllWorkouts(): Flow<List<Workout>>
     suspend fun getAllCompletedWorkoutsWithExercises(): List<Workout>
+    suspend fun reassignWorkouts(oldGymId: Long, newGymId: Long)
+    fun getCompletedWorkoutsByGym(gymId: Long): Flow<List<Workout>>
+    suspend fun getInProgressStrengthWorkout(gymId: Long): Workout?
+    suspend fun getInProgressConditioningWorkout(gymId: Long): Workout?
 }

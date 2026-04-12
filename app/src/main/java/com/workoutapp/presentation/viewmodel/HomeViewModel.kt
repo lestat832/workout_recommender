@@ -18,6 +18,7 @@ import com.workoutapp.domain.usecase.ImportDebugDataUseCase
 import com.workoutapp.domain.usecase.ImportResult
 import com.workoutapp.domain.usecase.ImportWorkoutUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -58,6 +59,8 @@ class HomeViewModel @Inject constructor(
     private val _selectedGymStyle = MutableStateFlow<GymWorkoutStyle?>(null)
     val selectedGymStyle: StateFlow<GymWorkoutStyle?> = _selectedGymStyle.asStateFlow()
 
+    private var recentWorkoutsJob: Job? = null
+
     // Predicted conditioning format for the Home Gym NextWorkoutCard. Null
     // when the selected gym is strength-only. Stable between recomputes so
     // the card doesn't flicker — updateNextType reseeds it on gym change /
@@ -67,7 +70,6 @@ class HomeViewModel @Inject constructor(
 
     init {
         loadLastWorkout()
-        loadRecentWorkouts()
         loadGyms()
     }
 
@@ -83,6 +85,7 @@ class HomeViewModel @Inject constructor(
             }
             _selectedGymId.value = resolvedId
             updateNextType(resolvedId)
+            loadRecentWorkouts(resolvedId)
         }
     }
 
@@ -92,6 +95,7 @@ class HomeViewModel @Inject constructor(
             userPreferencesRepository.setSelectedGymId(gymId)
         }
         updateNextType(gymId)
+        loadRecentWorkouts(gymId)
     }
     
     private fun loadLastWorkout() {
@@ -100,10 +104,15 @@ class HomeViewModel @Inject constructor(
         }
     }
     
-    private fun loadRecentWorkouts() {
-        viewModelScope.launch {
-            workoutRepository.getWorkoutsByStatus(WorkoutStatus.COMPLETED).collect { workouts ->
-                // Load full workout details for each workout - show more imported workouts
+    private fun loadRecentWorkouts(gymId: Long?) {
+        recentWorkoutsJob?.cancel()
+        if (gymId == null) {
+            _recentWorkouts.value = emptyList()
+            return
+        }
+        recentWorkoutsJob = viewModelScope.launch {
+            workoutRepository.getCompletedWorkoutsByGym(gymId).collect { workouts ->
+                // Load full workout details for each workout
                 val detailedWorkouts = workouts.take(50).map { workout ->
                     workoutRepository.getWorkoutById(workout.id) ?: workout
                 }
@@ -176,7 +185,7 @@ class HomeViewModel @Inject constructor(
                 
                 // Reload workouts after import
                 loadLastWorkout()
-                loadRecentWorkouts()
+                loadRecentWorkouts(_selectedGymId.value)
             } catch (e: Exception) {
                 _importState.value = ImportState.Error(e.message ?: "Unknown error occurred")
             }
@@ -205,10 +214,10 @@ class HomeViewModel @Inject constructor(
             
             // Reload workouts
             loadLastWorkout()
-            loadRecentWorkouts()
+            loadRecentWorkouts(_selectedGymId.value)
         }
     }
-    
+
     fun importMarcWorkouts() {
         viewModelScope.launch {
             _importState.value = ImportState.Loading
@@ -233,7 +242,7 @@ class HomeViewModel @Inject constructor(
                 
                 // Reload workouts
                 loadLastWorkout()
-                loadRecentWorkouts()
+                loadRecentWorkouts(_selectedGymId.value)
             } catch (e: Exception) {
                 _importState.value = ImportState.Error(e.message ?: "Failed to import workouts")
             }

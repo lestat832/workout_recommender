@@ -159,9 +159,6 @@ object EquipmentType {
      * @return true if the gym equipment can be used for the exercise
      */
     fun matches(exerciseEquipment: String, gymEquipment: String): Boolean {
-        // Bodyweight exercises always included
-        if (exerciseEquipment in BODYWEIGHT_VARIANTS) return true
-
         // Exact match (case-insensitive)
         if (exerciseEquipment.equals(gymEquipment, ignoreCase = true)) return true
 
@@ -196,9 +193,6 @@ object EquipmentType {
      * @return true if the exercise can be performed with available equipment
      */
     fun canPerformExercise(exerciseEquipment: String, availableEquipment: List<String>): Boolean {
-        // Bodyweight exercises can always be performed
-        if (exerciseEquipment in BODYWEIGHT_VARIANTS) return true
-
         // Check if any gym equipment matches the exercise requirement
         return availableEquipment.any { gymEquipment ->
             matches(exerciseEquipment, gymEquipment)

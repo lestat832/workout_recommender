@@ -69,4 +69,16 @@ interface WorkoutDao {
 
     @Query("SELECT * FROM workouts WHERE status = 'COMPLETED' ORDER BY date DESC")
     suspend fun getAllCompletedWorkouts(): List<WorkoutEntity>
+
+    @Query("SELECT * FROM workouts WHERE gymId = :gymId AND status = 'COMPLETED' ORDER BY date DESC")
+    fun getCompletedWorkoutsByGym(gymId: Long): Flow<List<WorkoutEntity>>
+
+    @Query("UPDATE workouts SET gymId = :newGymId WHERE gymId = :oldGymId")
+    suspend fun reassignWorkouts(oldGymId: Long, newGymId: Long)
+
+    @Query("SELECT * FROM workouts WHERE gymId = :gymId AND status IN ('IN_PROGRESS', 'INCOMPLETE') AND format = 'STRENGTH' ORDER BY date DESC LIMIT 1")
+    suspend fun getInProgressStrengthWorkout(gymId: Long): WorkoutEntity?
+
+    @Query("SELECT * FROM workouts WHERE gymId = :gymId AND status = 'IN_PROGRESS' AND format IN ('EMOM', 'AMRAP') ORDER BY date DESC LIMIT 1")
+    suspend fun getInProgressConditioningWorkout(gymId: Long): WorkoutEntity?
 }

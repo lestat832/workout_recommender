@@ -92,7 +92,7 @@ fun WorkoutNavigation(
     
     NavHost(
         navController = navController,
-        startDestination = if (isOnboardingComplete) "home" else "onboarding"
+        startDestination = "home"
     ) {
         composable("onboarding") {
             OnboardingScreen(
@@ -175,6 +175,11 @@ fun WorkoutNavigation(
         ) {
             ConditioningWorkoutScreen(
                 onWorkoutComplete = {
+                    navController.navigate("home") {
+                        popUpTo("conditioning_workout/{gymId}?format={format}") { inclusive = true }
+                    }
+                },
+                onNavigateBack = {
                     navController.navigate("home") {
                         popUpTo("conditioning_workout/{gymId}?format={format}") { inclusive = true }
                     }

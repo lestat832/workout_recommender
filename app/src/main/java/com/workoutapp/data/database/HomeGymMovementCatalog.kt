@@ -48,17 +48,17 @@ object HomeGymMovementCatalog {
         // ── CARDIO ──────────────────────────────────────────────────────────
         Movement(
             id = "custom_row_200_400m",
-            name = "Row (200-400m)",
+            name = "Row 350m",
             bucket = Bucket.CARDIO,
             equipment = "Indoor Rower",
-            instructions = "Row 200-400m at a hard but sustainable pace. Drive with the legs, hinge at the hips, pull with the arms last."
+            instructions = "Row 350m at a hard but sustainable pace. Drive with the legs, hinge at the hips, pull with the arms last."
         ),
         Movement(
             id = "custom_jump_rope_40_60s",
-            name = "Jump Rope (40-60s)",
+            name = "Jump Rope 50s",
             bucket = Bucket.CARDIO,
             equipment = "Jump Rope",
-            instructions = "Skip at a steady pace for 40-60 seconds. Keep wrists relaxed and land on the balls of your feet."
+            instructions = "Skip at a steady pace for 50 seconds. Keep wrists relaxed and land on the balls of your feet."
         ),
         Movement(
             id = "custom_burpees",

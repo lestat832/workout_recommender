@@ -26,7 +26,8 @@ import coil.compose.AsyncImage
 import com.workoutapp.domain.model.Exercise
 import com.workoutapp.domain.model.Set
 import com.workoutapp.domain.model.WorkoutExercise
-import com.workoutapp.domain.usecase.StrengthPrescription
+import com.workoutapp.domain.model.SetType
+import com.workoutapp.domain.model.WorkoutPrescription
 import com.workoutapp.presentation.viewmodel.WorkoutViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -249,7 +250,7 @@ fun WorkoutScreen(
 @Composable
 fun ExerciseCard(
     exercise: WorkoutExercise,
-    prescription: StrengthPrescription? = null,
+    prescription: WorkoutPrescription? = null,
     onAddSet: () -> Unit,
     onRemoveSet: (Int) -> Unit,
     onUpdateSet: (Int, Int, Float) -> Unit,
@@ -293,17 +294,35 @@ fun ExerciseCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    // 10x-trainer prescription line. Bold primary color for
-                    // the target, dimmer secondary line for the rationale so
-                    // the user sees the goal first and the "why" second.
+                    // 10x-trainer prescription: per-set breakdown with type
+                    // badges (W=warmup, R=ramp, working sets unmarked) and
+                    // a rationale line explaining the coaching logic.
                     prescription?.let { p ->
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = p.displayLine(),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        p.sets.forEach { setPrescription ->
+                            val prefix = when (setPrescription.setType) {
+                                SetType.WARMUP -> "W "
+                                SetType.RAMP -> "R "
+                                SetType.WORKING -> ""
+                            }
+                            val repRange = if (setPrescription.targetRepsMin == setPrescription.targetRepsMax) {
+                                "${setPrescription.targetRepsMin}"
+                            } else {
+                                "${setPrescription.targetRepsMin}-${setPrescription.targetRepsMax}"
+                            }
+                            val weightStr = setPrescription.recommendedWeight?.let { w ->
+                                if (w % 1f == 0f) " @ ${w.toInt()} lb" else " @ $w lb"
+                            } ?: ""
+                            Text(
+                                text = "$prefix$repRange reps$weightStr",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (setPrescription.setType == SetType.WORKING) FontWeight.Bold else FontWeight.Normal,
+                                color = if (setPrescription.setType == SetType.WORKING)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         Text(
                             text = p.rationale,
                             style = MaterialTheme.typography.bodySmall,

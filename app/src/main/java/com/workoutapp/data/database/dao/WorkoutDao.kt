@@ -66,4 +66,7 @@ interface WorkoutDao {
     
     @Query("SELECT * FROM workouts ORDER BY date DESC")
     fun getAllWorkouts(): Flow<List<WorkoutEntity>>
+
+    @Query("SELECT * FROM workouts WHERE status = 'COMPLETED' ORDER BY date DESC")
+    suspend fun getAllCompletedWorkouts(): List<WorkoutEntity>
 }

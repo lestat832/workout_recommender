@@ -8,8 +8,10 @@ import com.workoutapp.domain.model.*
 import com.workoutapp.domain.repository.ExerciseRepository
 import com.workoutapp.domain.repository.WorkoutRepository
 import com.workoutapp.domain.usecase.GenerateWorkoutUseCase
-import com.workoutapp.domain.usecase.StrengthPrescription
+import com.workoutapp.domain.usecase.ProfileComputerUseCase
 import com.workoutapp.domain.usecase.StrengthSetPrescriber
+import com.workoutapp.domain.usecase.toWorkoutPrescription
+import com.workoutapp.domain.repository.TrainingProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,7 +28,9 @@ class WorkoutViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val workoutRepository: WorkoutRepository,
     private val exerciseRepository: ExerciseRepository,
-    private val generateWorkoutUseCase: GenerateWorkoutUseCase
+    private val generateWorkoutUseCase: GenerateWorkoutUseCase,
+    private val profileComputerUseCase: ProfileComputerUseCase,
+    private val profileRepository: TrainingProfileRepository
 ) : AndroidViewModel(application) {
 
     private val gymId: Long? = savedStateHandle["gymId"]
@@ -42,6 +46,7 @@ class WorkoutViewModel @Inject constructor(
     val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
 
     private var currentWorkout: Workout? = null
+    private var workoutStartTime: Long = System.currentTimeMillis()
 
     init {
         startWorkout()
@@ -265,35 +270,55 @@ class WorkoutViewModel @Inject constructor(
     }
     
     /**
-     * For each exercise in the freshly generated workout, look up the last
-     * two completed sessions containing that exact exercise id and hand the
-     * history off to [StrengthSetPrescriber]. Returns a map keyed by
-     * workout-exercise id so the UI can render the prescription line under
-     * each card. Runs once at workout start — no incremental updates.
+     * For each exercise in the freshly generated workout, try the profile-aware
+     * prescriber first (per-set weights based on loading pattern). Falls back to
+     * the legacy history-based prescriber for exercises without a profile.
      */
     private suspend fun buildPrescriptions(
         exercises: List<WorkoutExercise>
-    ): Map<String, StrengthPrescription> {
+    ): Map<String, WorkoutPrescription> {
         if (exercises.isEmpty()) return emptyMap()
 
-        val completed = workoutRepository
-            .getWorkoutsByStatus(WorkoutStatus.COMPLETED)
-            .firstOrNull()
-            .orEmpty()
-        val candidateWorkouts = completed.take(HISTORY_LOOKBACK_WORKOUTS)
-        val fullCandidates = candidateWorkouts.mapNotNull {
-            workoutRepository.getWorkoutById(it.id)
-        }
+        // Load profiles for all exercises in this workout
+        val exerciseIds = exercises.map { it.exercise.id }
+        val profiles = profileRepository.getExerciseProfiles(exerciseIds)
+            .associateBy { it.exerciseId }
+
+        // Fallback: load history for exercises without profiles
+        val needsHistory = exercises.filter { profiles[it.exercise.id]?.strengthSessionCount ?: 0 < 2 }
+        val fullCandidates = if (needsHistory.isNotEmpty()) {
+            val completed = workoutRepository
+                .getWorkoutsByStatus(WorkoutStatus.COMPLETED)
+                .firstOrNull()
+                .orEmpty()
+            completed.take(HISTORY_LOOKBACK_WORKOUTS).mapNotNull {
+                workoutRepository.getWorkoutById(it.id)
+            }
+        } else emptyList()
 
         return exercises.mapIndexed { index, workoutExercise ->
-            val targetId = workoutExercise.exercise.id
-            val history = fullCandidates
-                .mapNotNull { w -> w.exercises.firstOrNull { it.exercise.id == targetId } }
-                .take(2)
-            val prescription = StrengthSetPrescriber.prescribe(
-                positionInWorkout = index,
-                history = history
-            )
+            val profile = profiles[workoutExercise.exercise.id]
+
+            val prescription = if (profile != null && profile.strengthSessionCount >= 2) {
+                // Profile-aware: per-set prescriptions with loading pattern
+                StrengthSetPrescriber.prescribeFromProfile(
+                    positionInWorkout = index,
+                    profile = profile
+                )
+            } else {
+                // Fallback: legacy history-based
+                val targetId = workoutExercise.exercise.id
+                val history = fullCandidates
+                    .mapNotNull { w -> w.exercises.firstOrNull { it.exercise.id == targetId } }
+                    .take(2)
+                val legacy = StrengthSetPrescriber.prescribe(
+                    positionInWorkout = index,
+                    history = history
+                )
+                // Wrap legacy prescription into WorkoutPrescription
+                legacy.toWorkoutPrescription()
+            }
+
             workoutExercise.id to prescription
         }.toMap()
     }
@@ -343,14 +368,21 @@ class WorkoutViewModel @Inject constructor(
                 _uiState.value.exercises.forEach { exercise ->
                     workoutRepository.addExerciseToWorkout(workout.id, exercise)
                 }
-                
+
+                // Compute session duration from start time
+                val durationMin = ((System.currentTimeMillis() - workoutStartTime) / 60000).toInt()
+
                 // Update workout status
                 val completedWorkout = workout.copy(
                     status = WorkoutStatus.COMPLETED,
-                    exercises = _uiState.value.exercises
+                    exercises = _uiState.value.exercises,
+                    durationMinutes = durationMin
                 )
                 workoutRepository.updateWorkout(completedWorkout)
-                
+
+                // Update training profile
+                profileComputerUseCase.updateAfterWorkout(completedWorkout.id)
+
                 _uiState.value = _uiState.value.copy(isCompleted = true)
             }
         }
@@ -360,7 +392,7 @@ class WorkoutViewModel @Inject constructor(
 data class WorkoutUiState(
     val isLoading: Boolean = false,
     val exercises: List<WorkoutExercise> = emptyList(),
-    val prescriptions: Map<String, StrengthPrescription> = emptyMap(),
+    val prescriptions: Map<String, WorkoutPrescription> = emptyMap(),
     val error: String? = null,
     val isCompleted: Boolean = false
 )

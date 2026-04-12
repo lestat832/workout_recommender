@@ -12,6 +12,7 @@ import com.workoutapp.domain.model.WorkoutStatus
 import com.workoutapp.domain.model.WorkoutType
 import com.workoutapp.domain.repository.WorkoutRepository
 import com.workoutapp.domain.usecase.GenerateConditioningWorkoutUseCase
+import com.workoutapp.domain.usecase.ProfileComputerUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +28,8 @@ class ConditioningWorkoutViewModel @Inject constructor(
     application: Application,
     savedStateHandle: SavedStateHandle,
     private val workoutRepository: WorkoutRepository,
-    private val generateConditioningWorkoutUseCase: GenerateConditioningWorkoutUseCase
+    private val generateConditioningWorkoutUseCase: GenerateConditioningWorkoutUseCase,
+    private val profileComputerUseCase: ProfileComputerUseCase
 ) : AndroidViewModel(application) {
 
     private val gymId: Long? = savedStateHandle["gymId"]
@@ -143,6 +145,7 @@ class ConditioningWorkoutViewModel @Inject constructor(
                 completedRounds = finalRounds
             )
             workoutRepository.updateWorkout(completed)
+            profileComputerUseCase.updateAfterWorkout(completed.id)
             _uiState.value = _uiState.value.copy(isCompleted = true)
         }
     }

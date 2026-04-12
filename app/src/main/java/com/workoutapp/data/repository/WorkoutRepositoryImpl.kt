@@ -127,6 +127,12 @@ class WorkoutRepositoryImpl @Inject constructor(
         return workoutDao.getExerciseIdsFromDate(oneWeekAgo)
     }
 
+    override suspend fun getAllCompletedWorkoutsWithExercises(): List<Workout> {
+        return workoutDao.getAllCompletedWorkouts().mapNotNull { entity ->
+            getWorkoutById(entity.id)
+        }
+    }
+
     override fun getAllWorkouts(): Flow<List<Workout>> {
         return workoutDao.getAllWorkouts().map { workouts ->
             workouts.map { it.toDomain(emptyList()) }

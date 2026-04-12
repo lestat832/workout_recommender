@@ -18,7 +18,8 @@ import javax.inject.Inject
  */
 class InitializeExercisesUseCase @Inject constructor(
     private val exerciseRepository: ExerciseRepositoryImpl,
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val hevyHistorySeeder: HevyHistorySeeder
 ) {
 
     private val prefs: SharedPreferences by lazy {
@@ -36,6 +37,7 @@ class InitializeExercisesUseCase @Inject constructor(
         private const val KEY_HOME_GYM_UPPER_EXPANSION_SEEDED = "home_gym_upper_expansion_seeded"
         private const val KEY_HOME_GYM_POOL_EXPANSION_2_SEEDED = "home_gym_pool_expansion_2_seeded"
         private const val KEY_HOME_GYM_POOL_EXPANSION_3_SEEDED = "home_gym_pool_expansion_3_seeded"
+        private const val KEY_HEVY_HISTORY_SEEDED = "hevy_history_seeded"
 
         // Ids added after the initial Home Gym catalog seed. Existing installs
         // need a one-shot insert + activation for these; fresh installs pick
@@ -210,6 +212,15 @@ class InitializeExercisesUseCase @Inject constructor(
                 exerciseRepository.insertExercises(newLmuLegs)
                 exerciseRepository.setUserExercises(LmuLegCatalog.allowedIds.toList())
                 prefs.edit().putBoolean(KEY_LMU_LEG_CATALOG_SEEDED, true).apply()
+            }
+
+            // Hevy history seed: one-time import of 201 historical workout
+            // sessions from bundled CSV (res/raw/hevy_export.csv). Creates
+            // exercises + completed workouts + recomputes training profile.
+            // Runs after all exercise catalogs are seeded so mappings resolve.
+            if (!prefs.getBoolean(KEY_HEVY_HISTORY_SEEDED, false)) {
+                hevyHistorySeeder.seedFromBundledCsv()
+                prefs.edit().putBoolean(KEY_HEVY_HISTORY_SEEDED, true).apply()
             }
 
             Result.success(count)

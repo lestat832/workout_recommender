@@ -15,6 +15,7 @@ import com.workoutapp.data.database.dao.ExerciseDao
 import com.workoutapp.data.database.dao.GymDao
 import com.workoutapp.data.database.dao.StravaAuthDao
 import com.workoutapp.data.database.dao.StravaSyncDao
+import com.workoutapp.data.database.dao.TrainingProfileDao
 import com.workoutapp.data.database.dao.WorkoutDao
 import com.workoutapp.data.database.entities.*
 import kotlinx.coroutines.CoroutineScope
@@ -29,9 +30,12 @@ import kotlinx.coroutines.launch
         WorkoutExerciseEntity::class,
         StravaSyncQueueEntity::class,
         StravaAuthEntity::class,
-        GymEntity::class
+        GymEntity::class,
+        ExerciseProfileEntity::class,
+        MuscleGroupProfileEntity::class,
+        GlobalProfileEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 @TypeConverters(DateConverter::class, SetListConverter::class, StringListConverter::class, MuscleGroupListConverter::class)
@@ -41,6 +45,7 @@ abstract class WorkoutDatabase : RoomDatabase() {
     abstract fun stravaSyncDao(): StravaSyncDao
     abstract fun stravaAuthDao(): StravaAuthDao
     abstract fun gymDao(): GymDao
+    abstract fun trainingProfileDao(): TrainingProfileDao
     
     companion object {
         @Volatile
@@ -198,6 +203,71 @@ abstract class WorkoutDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS exercise_profiles (
+                        exerciseId TEXT NOT NULL PRIMARY KEY,
+                        loadingPattern TEXT NOT NULL DEFAULT 'UNKNOWN',
+                        loadingPatternConfidence INTEGER NOT NULL DEFAULT 0,
+                        currentWorkingWeight REAL,
+                        warmupWeight REAL,
+                        rampSteps INTEGER NOT NULL DEFAULT 0,
+                        bodyweightOnly INTEGER NOT NULL DEFAULT 0,
+                        preferredWorkingSets INTEGER NOT NULL DEFAULT 3,
+                        preferredRepsMin INTEGER NOT NULL DEFAULT 8,
+                        preferredRepsMax INTEGER NOT NULL DEFAULT 10,
+                        lastProgressionDate INTEGER,
+                        progressionRateLbPerMonth REAL,
+                        estimatedOneRepMax REAL,
+                        plateauFlag INTEGER NOT NULL DEFAULT 0,
+                        plateauSessionCount INTEGER NOT NULL DEFAULT 0,
+                        sessionCount INTEGER NOT NULL DEFAULT 0,
+                        strengthSessionCount INTEGER NOT NULL DEFAULT 0,
+                        lastPerformedDate INTEGER,
+                        lastUpdated INTEGER NOT NULL
+                    )
+                """)
+
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS muscle_group_profiles (
+                        muscleGroup TEXT NOT NULL PRIMARY KEY,
+                        weeklySetVolume REAL NOT NULL DEFAULT 0,
+                        volumeTolerance INTEGER,
+                        coveragePercentage REAL NOT NULL DEFAULT 0,
+                        preferredExerciseIds TEXT NOT NULL DEFAULT '',
+                        avoidedExerciseIds TEXT NOT NULL DEFAULT '',
+                        lastTrainedDate INTEGER,
+                        sessionCount INTEGER NOT NULL DEFAULT 0,
+                        lastUpdated INTEGER NOT NULL
+                    )
+                """)
+
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS global_profile (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        avgSessionDurationMin REAL NOT NULL DEFAULT 0,
+                        avgExercisesPerSession REAL NOT NULL DEFAULT 0,
+                        avgSetsPerExercise REAL NOT NULL DEFAULT 0,
+                        trainingFrequencyPerWeek REAL NOT NULL DEFAULT 0,
+                        pushPullRatio REAL NOT NULL DEFAULT 1,
+                        preferredTrainingDays TEXT NOT NULL DEFAULT '',
+                        totalCompletedSessions INTEGER NOT NULL DEFAULT 0,
+                        totalStrengthSessions INTEGER NOT NULL DEFAULT 0,
+                        totalConditioningSessions INTEGER NOT NULL DEFAULT 0,
+                        currentStreakWeeks INTEGER NOT NULL DEFAULT 0,
+                        lastWorkoutDate INTEGER,
+                        profileVersion INTEGER NOT NULL DEFAULT 1,
+                        lastFullRecompute INTEGER NOT NULL DEFAULT 0,
+                        lastUpdated INTEGER NOT NULL
+                    )
+                """)
+
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_exercise_profiles_lastPerformedDate ON exercise_profiles(lastPerformedDate)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_muscle_group_profiles_coveragePercentage ON muscle_group_profiles(coveragePercentage)")
+            }
+        }
+
         fun getDatabase(context: Context): WorkoutDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -205,7 +275,7 @@ abstract class WorkoutDatabase : RoomDatabase() {
                     WorkoutDatabase::class.java,
                     "workout_database"
                 )
-                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
                     // Allow destructive recovery only for hypothetical pre-v3 installs
                     // (the project has no committed v1/v2 migrations and has shipped
                     // v3+ since its earliest tracked schema). Any unhandled v3+ upgrade

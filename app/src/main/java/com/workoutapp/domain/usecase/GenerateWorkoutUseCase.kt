@@ -6,8 +6,10 @@ import com.workoutapp.domain.model.ExerciseCategory
 import com.workoutapp.domain.model.GeneratedWorkout
 import com.workoutapp.domain.model.MuscleGroup
 import com.workoutapp.domain.model.WorkoutType
+import com.workoutapp.domain.model.Exercise
 import com.workoutapp.domain.repository.ExerciseRepository
 import com.workoutapp.domain.repository.GymRepository
+import com.workoutapp.domain.repository.TrainingProfileRepository
 import com.workoutapp.domain.repository.WorkoutRepository
 import java.util.Calendar
 import java.util.Date
@@ -16,7 +18,8 @@ import javax.inject.Inject
 class GenerateWorkoutUseCase @Inject constructor(
     private val exerciseRepository: ExerciseRepository,
     private val workoutRepository: WorkoutRepository,
-    private val gymRepository: GymRepository
+    private val gymRepository: GymRepository,
+    private val profileRepository: TrainingProfileRepository
 ) {
     suspend operator fun invoke(
         gymId: Long? = null,
@@ -58,19 +61,26 @@ class GenerateWorkoutUseCase @Inject constructor(
             listOf(MuscleGroup.LEGS, MuscleGroup.BACK, MuscleGroup.BICEP)
         }
 
+        // Load exercise profiles for plateau detection
+        val allCandidateIds = availableExercises.map { it.id }
+        val exerciseProfiles = profileRepository.getExerciseProfiles(allCandidateIds)
+            .associateBy { it.exerciseId }
+
         val selected = targetMuscleGroups.mapNotNull { muscleGroup ->
             val candidates = exercisesByMuscle[muscleGroup] ?: return@mapNotNull null
             val filtered = when (muscleGroup) {
-                // Strength generators share the LMU leg whitelist: when picking a
-                // LEGS exercise, prefer the hand-curated LmuLegCatalog. Falls back
-                // to the full equipment-matched pool if no catalog movement is
-                // available at this gym so the leg slot never silently drops out.
                 MuscleGroup.LEGS -> candidates
                     .filter { it.id in LmuLegCatalog.allowedIds }
                     .ifEmpty { candidates }
                 else -> candidates
             }
-            filtered.randomOrNull()
+            // Deprioritize plateau'd exercises: prefer non-plateau'd, fall back to all
+            val nonPlateau = filtered.filter { exercise ->
+                val profile = exerciseProfiles[exercise.id]
+                profile == null || !profile.plateauFlag
+            }
+            val pool = nonPlateau.ifEmpty { filtered }
+            pool.randomOrNull()
         }.take(3)
 
         return GeneratedWorkout(type = workoutType, exercises = selected)
@@ -100,12 +110,24 @@ class GenerateWorkoutUseCase @Inject constructor(
         }
         val last = workoutRepository.getLastCompletedWorkoutByGym(gymId)
         val weekStart = currentWeekStartMonday()
-        return when {
+        val baseType = when {
             last == null -> WorkoutType.PULL
             last.date.before(weekStart) -> WorkoutType.PULL
             last.type == WorkoutType.PUSH -> WorkoutType.PULL
             else -> WorkoutType.PUSH
         }
+
+        // Push/pull ratio nudge: if push-heavy (>1.8 ratio) and alternation
+        // says PUSH, override to PULL to rebalance. Only applies when the
+        // profile has enough data to be meaningful.
+        if (baseType == WorkoutType.PUSH) {
+            val globalProfile = profileRepository.getGlobalProfile()
+            if (globalProfile != null && globalProfile.totalStrengthSessions >= 10 && globalProfile.pushPullRatio > 1.8f) {
+                return WorkoutType.PULL
+            }
+        }
+
+        return baseType
     }
 
     private fun categoriesFor(type: WorkoutType): List<ExerciseCategory> = when (type) {

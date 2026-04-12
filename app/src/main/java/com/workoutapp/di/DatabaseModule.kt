@@ -6,6 +6,7 @@ import com.workoutapp.data.database.dao.ExerciseDao
 import com.workoutapp.data.database.dao.GymDao
 import com.workoutapp.data.database.dao.StravaAuthDao
 import com.workoutapp.data.database.dao.StravaSyncDao
+import com.workoutapp.data.database.dao.TrainingProfileDao
 import com.workoutapp.data.database.dao.WorkoutDao
 import dagger.Module
 import dagger.Provides
@@ -49,5 +50,10 @@ object DatabaseModule {
     @Provides
     fun provideGymDao(database: WorkoutDatabase): GymDao {
         return database.gymDao()
+    }
+
+    @Provides
+    fun provideTrainingProfileDao(database: WorkoutDatabase): TrainingProfileDao {
+        return database.trainingProfileDao()
     }
 }

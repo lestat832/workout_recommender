@@ -3,6 +3,7 @@ package com.workoutapp.domain.mapper
 import com.workoutapp.data.remote.strava.StravaActivityRequest
 import com.workoutapp.domain.formatter.StravaDescriptionFormatter
 import com.workoutapp.domain.model.Workout
+import com.workoutapp.domain.model.WorkoutFormat
 import com.workoutapp.domain.model.WorkoutType
 import java.text.SimpleDateFormat
 import java.util.*
@@ -31,14 +32,19 @@ object WorkoutToStravaMapper {
         startTime: Long? = null,
         endTime: Long? = null
     ): StravaActivityRequest {
-        // Use provided times or fall back to workout date
+        val isConditioning = workout.format == WorkoutFormat.EMOM || workout.format == WorkoutFormat.AMRAP
+
         val actualStartTime = startTime ?: workout.date.time
-        val actualEndTime = endTime ?: (actualStartTime + estimateDuration(workout))
+        val actualEndTime = if (isConditioning) {
+            actualStartTime + (workout.durationMinutes ?: 20) * 60 * 1000L
+        } else {
+            endTime ?: (actualStartTime + estimateDuration(workout))
+        }
 
         return StravaActivityRequest(
-            name = formatActivityName(workout.type),
-            type = "WeightTraining",
-            sportType = "WeightTraining",
+            name = formatActivityName(workout),
+            type = if (isConditioning) "Workout" else "WeightTraining",
+            sportType = if (isConditioning) "Workout" else "WeightTraining",
             startDateLocal = formatDateToIso8601(actualStartTime),
             elapsedTime = calculateElapsedTimeSeconds(actualStartTime, actualEndTime),
             description = StravaDescriptionFormatter.format(
@@ -52,12 +58,16 @@ object WorkoutToStravaMapper {
     }
 
     /**
-     * Format activity name with emoji based on workout type
+     * Format activity name with emoji based on workout format/type
      */
-    private fun formatActivityName(workoutType: WorkoutType): String {
-        return when (workoutType) {
-            WorkoutType.PUSH -> "💪 PUSH Workout"
-            WorkoutType.PULL -> "🔥 PULL Workout"
+    private fun formatActivityName(workout: Workout): String {
+        return when (workout.format) {
+            WorkoutFormat.EMOM -> "\uD83D\uDD25 EMOM Workout"
+            WorkoutFormat.AMRAP -> "\uD83D\uDD25 AMRAP Workout"
+            else -> when (workout.type) {
+                WorkoutType.PUSH -> "\uD83D\uDCAA PUSH Workout"
+                WorkoutType.PULL -> "\uD83D\uDD25 PULL Workout"
+            }
         }
     }
 

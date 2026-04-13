@@ -146,6 +146,10 @@ class ExerciseRepositoryImpl @Inject constructor(
     override suspend fun getCustomExerciseByName(name: String): Exercise? {
         return exerciseDao.getCustomExerciseByName(name)?.toDomain()
     }
+
+    override suspend fun getExerciseByName(name: String): Exercise? {
+        return exerciseDao.getExerciseByName(name)?.toDomain()
+    }
     
     override fun getCustomExercises(): Flow<List<Exercise>> {
         return exerciseDao.getCustomExercises().map { entities ->

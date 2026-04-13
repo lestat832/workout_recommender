@@ -87,4 +87,7 @@ interface ExerciseDao {
     
     @Query("SELECT * FROM exercises WHERE LOWER(name) = LOWER(:name) AND isUserCreated = 1 LIMIT 1")
     suspend fun getCustomExerciseByName(name: String): ExerciseEntity?
+
+    @Query("SELECT * FROM exercises WHERE LOWER(name) = LOWER(:name) LIMIT 1")
+    suspend fun getExerciseByName(name: String): ExerciseEntity?
 }

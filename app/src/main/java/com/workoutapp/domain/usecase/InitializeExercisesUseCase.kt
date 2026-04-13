@@ -423,7 +423,11 @@ class InitializeExercisesUseCase @Inject constructor(
 
     private suspend fun seedLmuBench20260412() {
         val lmuGym = gymRepository.getAllGyms().firstOrNull { it.name == "LMU Gym" } ?: return
-        val exercise = exerciseRepository.getExerciseById("1") ?: return // Barbell Bench Press
+        // Hevy seeder stores exercises under their Hevy name (not the mapped
+        // app name), so look up "Bench Press (Barbell)" not "Barbell Bench Press"
+        val exercise = exerciseRepository.getExerciseByName("Bench Press (Barbell)")
+            ?: exerciseRepository.getExerciseByName("Barbell Bench Press")
+            ?: return
 
         val date = Calendar.getInstance().apply {
             set(2026, 3, 12, 7, 0, 0) // April 12 2026, 7am

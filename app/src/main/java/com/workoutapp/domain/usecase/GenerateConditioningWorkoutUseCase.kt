@@ -91,10 +91,12 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
             .map { fingerprint(it.exercises.map { e -> e.exercise.id }) }
             .toSet()
 
-        var candidateIds = pickMovementIds(format)
+        val lastPerformedDates = workoutRepository.getExerciseLastPerformedDates()
+
+        var candidateIds = pickMovementIds(format, lastPerformedDates)
         var attempts = 0
         while (fingerprint(candidateIds) in existingFingerprints && attempts < MAX_RETRIES) {
-            candidateIds = pickMovementIds(format)
+            candidateIds = pickMovementIds(format, lastPerformedDates)
             attempts++
         }
 
@@ -139,7 +141,7 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
      * strength slots. Prevents brutal all-heavy metcons where a 60s clock
      * across three compound lifts degrades form by round 3-4.
      */
-    private fun pickMovementIds(format: WorkoutFormat): List<String> {
+    private fun pickMovementIds(format: WorkoutFormat, lastPerformedDates: Map<String, java.util.Date>): List<String> {
         val byBucket = HomeGymMovementCatalog.byBucket()
         val cardio = byBucket[Bucket.CARDIO].orEmpty()
         val lower = byBucket[Bucket.LOWER_BODY].orEmpty()
@@ -150,26 +152,45 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
 
         return when (format) {
             WorkoutFormat.EMOM -> {
-                val legsPick = lower.random()
+                val legsPick = ExerciseFreshness.weightedRandom(lower, weightFn = {
+                    ExerciseFreshness.weight(it.id, lastPerformedDates)
+                }) ?: lower.random()
                 // After each strength pick, if a heavy has already been used
                 // filter the next pool to exclude heavies. `.ifEmpty { pool }`
                 // is a safety net for hypothetical futures where every pull
                 // or push is heavy — today only 1 of 5 is, so the filter
                 // never empties, but the fallback keeps the generator safe.
                 val pullPool = if (legsPick.isHeavy()) pull.filterNot { it.isHeavy() } else pull
-                val pullPick = pullPool.ifEmpty { pull }.random()
+                val pullCandidates = pullPool.ifEmpty { pull }
+                val pullPick = ExerciseFreshness.weightedRandom(pullCandidates, weightFn = {
+                    ExerciseFreshness.weight(it.id, lastPerformedDates)
+                }) ?: pullCandidates.random()
                 val heavyUsed = legsPick.isHeavy() || pullPick.isHeavy()
                 val pushPool = if (heavyUsed) push.filterNot { it.isHeavy() } else push
-                val pushPick = pushPool.ifEmpty { push }.random()
-                val closerPick = (core + conditioning).random()
+                val pushCandidates = pushPool.ifEmpty { push }
+                val pushPick = ExerciseFreshness.weightedRandom(pushCandidates, weightFn = {
+                    ExerciseFreshness.weight(it.id, lastPerformedDates)
+                }) ?: pushCandidates.random()
+                val closerPool = core + conditioning
+                val closerPick = ExerciseFreshness.weightedRandom(closerPool, weightFn = {
+                    ExerciseFreshness.weight(it.id, lastPerformedDates)
+                }) ?: closerPool.random()
                 val picks = mutableListOf(legsPick, pullPick, pushPick, closerPick)
                 capTrx(picks, listOf(lower, pull, push, core + conditioning))
                 picks.map { it.id }
             }
             WorkoutFormat.AMRAP -> {
-                val cardioPick = cardio.random()
-                val strengthPick = (lower + pull + push).random()
-                val closerPick = (core + conditioning).random()
+                val cardioPick = ExerciseFreshness.weightedRandom(cardio, weightFn = {
+                    ExerciseFreshness.weight(it.id, lastPerformedDates)
+                }) ?: cardio.random()
+                val strengthPool = lower + pull + push
+                val strengthPick = ExerciseFreshness.weightedRandom(strengthPool, weightFn = {
+                    ExerciseFreshness.weight(it.id, lastPerformedDates)
+                }) ?: strengthPool.random()
+                val closerPool = core + conditioning
+                val closerPick = ExerciseFreshness.weightedRandom(closerPool, weightFn = {
+                    ExerciseFreshness.weight(it.id, lastPerformedDates)
+                }) ?: closerPool.random()
                 val picks = mutableListOf(cardioPick, strengthPick, closerPick)
                 capTrx(picks, listOf(cardio, lower + pull + push, core + conditioning))
                 picks.map { it.id }

@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
         MuscleGroupProfileEntity::class,
         GlobalProfileEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 @TypeConverters(DateConverter::class, SetListConverter::class, StringListConverter::class, MuscleGroupListConverter::class)
@@ -203,6 +203,12 @@ abstract class WorkoutDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE workout_exercises ADD COLUMN prescription TEXT")
+            }
+        }
+
         private val MIGRATION_9_10 = object : Migration(9, 10) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("""
@@ -275,7 +281,7 @@ abstract class WorkoutDatabase : RoomDatabase() {
                     WorkoutDatabase::class.java,
                     "workout_database"
                 )
-                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                     // Allow destructive recovery only for hypothetical pre-v3 installs
                     // (the project has no committed v1/v2 migrations and has shipped
                     // v3+ since its earliest tracked schema). Any unhandled v3+ upgrade

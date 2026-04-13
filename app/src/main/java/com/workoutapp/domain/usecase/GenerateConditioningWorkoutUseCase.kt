@@ -43,6 +43,7 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
         // a pace-yourself slog.
         const val AMRAP_DURATION_MINUTES = 15
         private const val MAX_RETRIES = 5
+        private const val MAX_TRX_PER_SESSION = 2
     }
 
     /**
@@ -138,18 +139,19 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
                 val heavyUsed = legsPick.isHeavy() || pullPick.isHeavy()
                 val pushPool = if (heavyUsed) push.filterNot { it.isHeavy() } else push
                 val pushPick = pushPool.ifEmpty { push }.random()
-                listOf(
-                    legsPick.id,
-                    pullPick.id,
-                    pushPick.id,
-                    (core + conditioning).random().id
-                )
+                val closerPick = (core + conditioning).random()
+                val picks = mutableListOf(legsPick, pullPick, pushPick, closerPick)
+                capTrx(picks, listOf(lower, pull, push, core + conditioning))
+                picks.map { it.id }
             }
-            WorkoutFormat.AMRAP -> listOf(
-                cardio.random().id,
-                (lower + pull + push).random().id,
-                (core + conditioning).random().id
-            )
+            WorkoutFormat.AMRAP -> {
+                val cardioPick = cardio.random()
+                val strengthPick = (lower + pull + push).random()
+                val closerPick = (core + conditioning).random()
+                val picks = mutableListOf(cardioPick, strengthPick, closerPick)
+                capTrx(picks, listOf(cardio, lower + pull + push, core + conditioning))
+                picks.map { it.id }
+            }
             else -> error("Unsupported conditioning format: $format")
         }
     }
@@ -161,6 +163,27 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
      */
     private fun HomeGymMovementCatalog.Movement.isHeavy(): Boolean =
         id.startsWith("custom_heavy_")
+
+    private fun HomeGymMovementCatalog.Movement.isTrx(): Boolean =
+        equipment == "Suspension Trainer"
+
+    /**
+     * Enforces max 2 TRX exercises per session to avoid excessive strap
+     * adjustment overhead within 60-second EMOM windows. Re-rolls excess
+     * TRX picks from the same bucket pool. If no non-TRX alternative
+     * exists in a bucket, keeps the original pick.
+     */
+    private fun capTrx(
+        picks: MutableList<HomeGymMovementCatalog.Movement>,
+        bucketPools: List<List<HomeGymMovementCatalog.Movement>>
+    ) {
+        val trxIndices = picks.indices.filter { picks[it].isTrx() }
+        if (trxIndices.size <= MAX_TRX_PER_SESSION) return
+        for (i in trxIndices.drop(MAX_TRX_PER_SESSION)) {
+            val pool = bucketPools[i].filterNot { it.isTrx() || it.id in picks.map { p -> p.id } }
+            if (pool.isNotEmpty()) picks[i] = pool.random()
+        }
+    }
 
     private fun fingerprint(ids: List<String>): String = ids.sorted().joinToString(",")
 }

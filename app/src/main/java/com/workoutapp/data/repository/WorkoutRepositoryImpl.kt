@@ -63,7 +63,8 @@ class WorkoutRepositoryImpl @Inject constructor(
                 id = exerciseEntity.id,
                 workoutId = exerciseEntity.workoutId,
                 exercise = exercise.toDomain(),
-                sets = exerciseEntity.sets
+                sets = exerciseEntity.sets,
+                prescription = exerciseEntity.prescription
             )
         }
 
@@ -105,7 +106,8 @@ class WorkoutRepositoryImpl @Inject constructor(
             id = exercise.id,
             workoutId = workoutId,
             exerciseId = exercise.exercise.id,
-            sets = exercise.sets
+            sets = exercise.sets,
+            prescription = exercise.prescription
         )
         workoutDao.insertWorkoutExercises(listOf(entity))
     }
@@ -115,7 +117,8 @@ class WorkoutRepositoryImpl @Inject constructor(
             id = exercise.id,
             workoutId = exercise.workoutId,
             exerciseId = exercise.exercise.id,
-            sets = exercise.sets
+            sets = exercise.sets,
+            prescription = exercise.prescription
         )
         workoutDao.updateWorkoutExercise(entity)
     }

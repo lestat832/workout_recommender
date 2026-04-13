@@ -13,6 +13,7 @@ import com.workoutapp.domain.repository.GymRepository
 import com.workoutapp.domain.repository.UserPreferencesRepository
 import com.workoutapp.domain.repository.WorkoutRepository
 import com.workoutapp.domain.usecase.DeleteWorkoutUseCase
+import com.workoutapp.domain.usecase.ExportWorkoutsUseCase
 import com.workoutapp.domain.usecase.GenerateConditioningWorkoutUseCase
 import com.workoutapp.domain.usecase.GenerateWorkoutUseCase
 import com.workoutapp.domain.usecase.ImportDebugDataUseCase
@@ -37,7 +38,8 @@ class HomeViewModel @Inject constructor(
     private val generateConditioningWorkoutUseCase: GenerateConditioningWorkoutUseCase,
     private val importWorkoutUseCase: ImportWorkoutUseCase,
     private val importDebugDataUseCase: ImportDebugDataUseCase,
-    private val deleteWorkoutUseCase: DeleteWorkoutUseCase
+    private val deleteWorkoutUseCase: DeleteWorkoutUseCase,
+    private val exportWorkoutsUseCase: ExportWorkoutsUseCase
 ) : ViewModel() {
 
     private val _lastWorkout = MutableStateFlow<Workout?>(null)
@@ -204,6 +206,19 @@ class HomeViewModel @Inject constructor(
         _importState.value = ImportState.Idle
     }
     
+    private val _exportCsv = MutableStateFlow<String?>(null)
+    val exportCsv: StateFlow<String?> = _exportCsv.asStateFlow()
+
+    fun exportWorkouts() {
+        viewModelScope.launch {
+            _exportCsv.value = exportWorkoutsUseCase()
+        }
+    }
+
+    fun clearExport() {
+        _exportCsv.value = null
+    }
+
     fun resetDebugDataImport() {
         importDebugDataUseCase.resetDebugDataImport()
     }

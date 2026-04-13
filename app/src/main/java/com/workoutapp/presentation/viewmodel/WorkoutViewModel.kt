@@ -346,8 +346,8 @@ class WorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             currentWorkout?.let { workout ->
                 deleteWorkoutUseCase(workout.id)
-                _uiState.value = _uiState.value.copy(isCompleted = true)
             }
+            _uiState.value = _uiState.value.copy(isCompleted = true)
         }
     }
     

@@ -1,11 +1,14 @@
 package com.workoutapp.domain.usecase
 
+import android.util.Log
 import com.workoutapp.domain.model.ExerciseProfile
 import com.workoutapp.domain.model.LoadingPattern
 import com.workoutapp.domain.model.SetPrescription
 import com.workoutapp.domain.model.SetType
 import com.workoutapp.domain.model.WorkoutExercise
 import com.workoutapp.domain.model.WorkoutPrescription
+
+private const val TAG = "FortisLupus"
 
 /**
  * Stateless set/rep/weight prescriber for LMU strength workouts. Given an
@@ -52,6 +55,7 @@ object StrengthSetPrescriber {
         val template = templateForPosition(positionInWorkout)
 
         if (history.size < 2) {
+            Log.d(TAG, "Prescribe pos=$positionInWorkout: history fallback, sessions=${history.size}")
             return StrengthPrescription(
                 targetSets = template.sets,
                 targetRepsMin = template.repsMin,
@@ -97,6 +101,8 @@ object StrengthSetPrescriber {
             .filter { it.weight >= previousWorkingWeight }
             .all { it.reps >= template.repsMax }
 
+        Log.d(TAG, "Prescribe pos=$positionInWorkout: last weight=${mostRecentWorkingWeight.toInt()}lb, cleared=$mostRecentClearedTop")
+
         return if (
             mostRecentClearedTop &&
             previousClearedTop &&
@@ -128,6 +134,7 @@ object StrengthSetPrescriber {
         positionInWorkout: Int,
         profile: ExerciseProfile
     ): WorkoutPrescription {
+        Log.d(TAG, "Profile prescribe: ${profile.exerciseId} pos=$positionInWorkout, working=${profile.currentWorkingWeight?.toInt()}lb, pattern=${profile.loadingPattern}, plateau=${profile.plateauFlag}")
         val template = templateForPosition(positionInWorkout)
         val sets = mutableListOf<SetPrescription>()
 

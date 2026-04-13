@@ -45,6 +45,13 @@ interface StravaSyncDao {
     suspend fun getAllFailed(): List<StravaSyncQueueEntity>
 
     /**
+     * Get stale IN_PROGRESS entries (worker died before completing).
+     * Considered stale if last attempt was more than 5 minutes ago.
+     */
+    @Query("SELECT * FROM strava_sync_queue WHERE status = 'IN_PROGRESS' AND lastAttemptAt < :staleThreshold")
+    suspend fun getStaleInProgress(staleThreshold: Long = System.currentTimeMillis() - 300_000): List<StravaSyncQueueEntity>
+
+    /**
      * Get all sync entries for a workout (includes all statuses)
      */
     @Query("SELECT * FROM strava_sync_queue WHERE workoutId = :workoutId")

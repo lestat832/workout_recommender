@@ -16,7 +16,10 @@ import com.workoutapp.domain.usecase.GenerateConditioningWorkoutUseCase
 import com.workoutapp.domain.usecase.GenerateConditioningWorkoutUseCase.Companion.AMRAP_DURATION_MINUTES
 import com.workoutapp.domain.usecase.GenerateConditioningWorkoutUseCase.Companion.EMOM_DURATION_MINUTES
 import com.workoutapp.domain.usecase.ProfileComputerUseCase
+import com.workoutapp.data.database.HomeGymMovementCatalog
 import com.workoutapp.data.sync.StravaSyncManager
+import com.workoutapp.domain.repository.ExerciseRepository
+import com.workoutapp.domain.usecase.RepPrescriber
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +35,7 @@ class ConditioningWorkoutViewModel @Inject constructor(
     application: Application,
     savedStateHandle: SavedStateHandle,
     private val workoutRepository: WorkoutRepository,
+    private val exerciseRepository: ExerciseRepository,
     private val generateConditioningWorkoutUseCase: GenerateConditioningWorkoutUseCase,
     private val profileComputerUseCase: ProfileComputerUseCase,
     private val stravaSyncManager: StravaSyncManager,
@@ -91,13 +95,21 @@ class ConditioningWorkoutViewModel @Inject constructor(
                     format = generated.format,
                     durationMinutes = generated.durationMinutes,
                     completedRounds = null,
-                    exercises = generated.exercises.map { exercise ->
-                        WorkoutExercise(
-                            id = UUID.randomUUID().toString(),
-                            workoutId = workoutId,
-                            exercise = exercise,
-                            sets = listOf(Set(reps = 0, weight = 0f, completed = true))
-                        )
+                    exercises = run {
+                        val sessionIds = generated.exercises.map { it.id }
+                        generated.exercises.map { exercise ->
+                            WorkoutExercise(
+                                id = UUID.randomUUID().toString(),
+                                workoutId = workoutId,
+                                exercise = exercise,
+                                sets = listOf(Set(reps = 0, weight = 0f, completed = true)),
+                                prescription = RepPrescriber.prescribe(
+                                    exerciseId = exercise.id,
+                                    format = generated.format,
+                                    sessionIds = sessionIds
+                                )
+                            )
+                        }
                     }
                 )
 
@@ -133,7 +145,13 @@ class ConditioningWorkoutViewModel @Inject constructor(
                 delay(1000)
                 if (!_uiState.value.isPaused) {
                     val next = _uiState.value.elapsedSeconds + 1
-                    _uiState.value = _uiState.value.copy(elapsedSeconds = next)
+                    val stationIndex = if (_uiState.value.format == WorkoutFormat.EMOM && _uiState.value.exercises.isNotEmpty()) {
+                        (next / 60) % _uiState.value.exercises.size
+                    } else -1
+                    _uiState.value = _uiState.value.copy(
+                        elapsedSeconds = next,
+                        currentStationIndex = stationIndex
+                    )
                 }
             }
         }
@@ -142,6 +160,60 @@ class ConditioningWorkoutViewModel @Inject constructor(
     fun beginWorkout() {
         _uiState.value = _uiState.value.copy(isPreview = false)
         runTimer()
+    }
+
+    fun shuffleExercise(exerciseId: String) {
+        viewModelScope.launch {
+            val current = _uiState.value.exercises.find { it.id == exerciseId } ?: return@launch
+            val movement = HomeGymMovementCatalog.byId(current.exercise.id) ?: return@launch
+
+            val byBucket = HomeGymMovementCatalog.byBucket()
+            val pool = when {
+                movement.bucket == HomeGymMovementCatalog.Bucket.CORE ||
+                    movement.bucket == HomeGymMovementCatalog.Bucket.CONDITIONING_BODYWEIGHT ->
+                    (byBucket[HomeGymMovementCatalog.Bucket.CORE].orEmpty() +
+                        byBucket[HomeGymMovementCatalog.Bucket.CONDITIONING_BODYWEIGHT].orEmpty())
+                else -> byBucket[movement.bucket].orEmpty()
+            }
+
+            val currentIds = _uiState.value.exercises.map { it.exercise.id }.toSet()
+            val trxCount = _uiState.value.exercises.count { it.exercise.equipment == "Suspension Trainer" }
+            val candidates = pool.filter { m ->
+                m.id !in currentIds &&
+                    (trxCount < 2 || m.equipment != "Suspension Trainer")
+            }
+            if (candidates.isEmpty()) return@launch
+
+            val newMovement = candidates.random()
+            val newExercise = exerciseRepository.getExerciseById(newMovement.id) ?: return@launch
+
+            val updatedSessionIds = _uiState.value.exercises.map {
+                if (it.id == exerciseId) newExercise.id else it.exercise.id
+            }
+            val prescription = RepPrescriber.prescribe(
+                exerciseId = newExercise.id,
+                format = _uiState.value.format,
+                sessionIds = updatedSessionIds
+            )
+
+            val replacement = current.copy(
+                exercise = newExercise,
+                sets = listOf(Set(reps = 0, weight = 0f, completed = true)),
+                prescription = prescription
+            )
+
+            val updatedExercises = _uiState.value.exercises.map {
+                if (it.id == exerciseId) replacement else it
+            }
+            _uiState.value = _uiState.value.copy(
+                exercises = updatedExercises,
+                coachNote = buildCoachNote(_uiState.value.format, updatedExercises)
+            )
+
+            // Update the existing row in-place (same ID, different exercise)
+            currentWorkout = currentWorkout?.copy(exercises = updatedExercises)
+            workoutRepository.updateWorkoutExercise(replacement)
+        }
     }
 
     fun togglePause() {
@@ -188,10 +260,17 @@ class ConditioningWorkoutViewModel @Inject constructor(
     fun completeWorkout() {
         viewModelScope.launch {
             val workout = currentWorkout ?: return@launch
-            val finalRounds = if (_uiState.value.format == WorkoutFormat.AMRAP) {
-                _uiState.value.rounds
-            } else {
-                null
+            val finalRounds = when (_uiState.value.format) {
+                WorkoutFormat.AMRAP -> _uiState.value.rounds
+                WorkoutFormat.EMOM -> {
+                    val stations = _uiState.value.exercises.size
+                    if (stations > 0) {
+                        // Rounds from actual elapsed time, not planned duration
+                        val elapsedMinutes = _uiState.value.elapsedSeconds / 60
+                        elapsedMinutes / stations
+                    } else null
+                }
+                else -> null
             }
             val completed = workout.copy(
                 status = WorkoutStatus.COMPLETED,
@@ -215,6 +294,7 @@ data class ConditioningUiState(
     val coachNote: String = "",
     val elapsedSeconds: Int = 0,
     val rounds: Int = 0,
+    val currentStationIndex: Int = -1,
     val error: String? = null,
     val isCompleted: Boolean = false
 )

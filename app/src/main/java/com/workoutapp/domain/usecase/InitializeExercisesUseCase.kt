@@ -19,6 +19,7 @@ import com.workoutapp.domain.repository.UserPreferencesRepository
 import com.workoutapp.domain.repository.WorkoutRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
 import java.util.Calendar
@@ -44,8 +45,13 @@ class InitializeExercisesUseCase @Inject constructor(
     }
 
     companion object {
+        // Bump this to force all init flags to clear and re-run all steps.
+        private const val INIT_VERSION = 3
+        private const val KEY_INIT_VERSION = "init_version"
+
         private const val KEY_EXERCISES_INITIALIZED = "exercises_initialized"
         private const val KEY_EXERCISE_COUNT = "exercise_count"
+        private const val KEY_BUNDLED_EXERCISES_SEEDED = "bundled_exercises_seeded"
         private const val KEY_CATEGORY_BACKFILLED = "exercise_category_backfilled"
         private const val KEY_CONDITIONING_EXERCISES_SEEDED = "conditioning_exercises_seeded"
         private const val KEY_CARDIO_NAMES_RECLASSIFIED = "cardio_names_reclassified"
@@ -60,6 +66,7 @@ class InitializeExercisesUseCase @Inject constructor(
         private const val KEY_LMU_BODYWEIGHT_REMOVED = "lmu_bodyweight_removed"
         private const val KEY_EXERCISEDB_ACTIVATED = "exercisedb_activated"
         private const val KEY_LMU_BENCH_20260412_SEEDED = "lmu_bench_20260412_seeded"
+        private const val KEY_HOME_GYM_EMOM_20260413_SEEDED = "home_gym_emom_20260413_seeded"
 
         // Ids added after the initial Home Gym catalog seed. Existing installs
         // need a one-shot insert + activation for these; fresh installs pick
@@ -125,185 +132,143 @@ class InitializeExercisesUseCase @Inject constructor(
      */
     suspend operator fun invoke(forceRefresh: Boolean = false): Result<Int?> = withContext(Dispatchers.IO) {
         try {
-            val isInitialized = prefs.getBoolean(KEY_EXERCISES_INITIALIZED, false)
-
-            val count: Int? = if (isInitialized && !forceRefresh) {
-                null
-            } else {
-                val result = exerciseRepository.syncExercisesFromApi()
-                if (result.isFailure) {
-                    return@withContext Result.failure(
-                        result.exceptionOrNull() ?: Exception("Failed to sync exercises")
-                    )
-                }
-                val c = result.getOrNull() ?: 0
-                prefs.edit()
-                    .putBoolean(KEY_EXERCISES_INITIALIZED, true)
-                    .putInt(KEY_EXERCISE_COUNT, c)
-                    .apply()
-                c
+            // Version gate: when INIT_VERSION bumps, clear all flags and
+            // re-run every step. This recovers from any stale-flag state
+            // (e.g., install-over where prefs persisted but DB is empty).
+            if (prefs.getInt(KEY_INIT_VERSION, 0) < INIT_VERSION) {
+                android.util.Log.w("InitExercises", "Init version bumped to $INIT_VERSION — clearing all flags")
+                prefs.edit().clear().putInt(KEY_INIT_VERSION, INIT_VERSION).apply()
             }
 
-            // One-time backfill of exerciseCategory for all existing exercises.
-            // Runs once per install, independent of the CDN sync flag, so existing
-            // users who already initialized before this code shipped still get it.
-            if (!prefs.getBoolean(KEY_CATEGORY_BACKFILLED, false)) {
+            // All exercises are bundled in ExerciseDataV2 and the various
+            // catalogs. Each step is gated by its own SharedPreferences flag
+            // and wrapped in safeRun so partial failures don't block others.
+            safeRun(KEY_BUNDLED_EXERCISES_SEEDED) {
+                val domainExercises = com.workoutapp.data.database.ExerciseDataV2.exercises.map { entity ->
+                    com.workoutapp.domain.model.Exercise(
+                        id = entity.id,
+                        name = entity.name,
+                        muscleGroups = entity.muscleGroups,
+                        equipment = entity.equipment,
+                        category = entity.category,
+                        imageUrl = entity.imageUrl,
+                        instructions = entity.instructions,
+                        isUserCreated = entity.isUserCreated
+                    )
+                }
+                exerciseRepository.insertExercises(domainExercises)
+            }
+
+            safeRun(KEY_CATEGORY_BACKFILLED) {
                 exerciseRepository.backfillExerciseCategories()
-                prefs.edit().putBoolean(KEY_CATEGORY_BACKFILLED, true).apply()
             }
 
             // Phase 3: one-time seed of the original custom conditioning exercises
             // (TRX, medicine ball, ab wheel, cardio stations). Most of these are
             // superseded by the Phase 3.1 catalog below, but we still insert them
             // so IDs stay stable for any historical workouts that reference them.
-            if (!prefs.getBoolean(KEY_CONDITIONING_EXERCISES_SEEDED, false)) {
+            safeRun(KEY_CONDITIONING_EXERCISES_SEEDED) {
                 exerciseRepository.insertExercises(CustomExerciseSeeder.exercises)
-                prefs.edit().putBoolean(KEY_CONDITIONING_EXERCISES_SEEDED, true).apply()
             }
 
             // Phase 3.1 fix 1: reclassify cardio/plyometric exercises that were
             // previously miscategorized as STRENGTH_LEGS or similar due to their
             // muscle group tags (e.g., "Fast Skipping" showing up on pull day).
             // Runs once per install regardless of the backfill flag.
-            if (!prefs.getBoolean(KEY_CARDIO_NAMES_RECLASSIFIED, false)) {
+            safeRun(KEY_CARDIO_NAMES_RECLASSIFIED) {
                 exerciseRepository.reclassifyCardioByName()
-                prefs.edit().putBoolean(KEY_CARDIO_NAMES_RECLASSIFIED, true).apply()
             }
 
-            // Phase 3.1 fix 2: seed the Home Gym movement catalog and activate
-            // everything (catalog + Phase 3 orphans) in user_exercises. The
-            // original Phase 3 seed inserted rows into `exercises` but never
-            // marked them active in `user_exercises`, so the generator's join
-            // filtered them out — that's the "No exercises available" error.
-            // This gate fixes both: the new catalog AND the old orphans.
-            if (!prefs.getBoolean(KEY_HOME_GYM_CATALOG_SEEDED, false)) {
+            safeRun(KEY_HOME_GYM_CATALOG_SEEDED) {
                 val catalogExercises = HomeGymCatalogSeeder.buildExercises()
                 exerciseRepository.insertExercises(catalogExercises)
-
                 val catalogIds = HomeGymMovementCatalog.movements.map { it.id }
                 val phase3OrphanIds = CustomExerciseSeeder.exercises.map { it.id }
                 val allIds = (catalogIds + phase3OrphanIds).distinct()
                 exerciseRepository.setUserExercises(allIds)
-
-                prefs.edit().putBoolean(KEY_HOME_GYM_CATALOG_SEEDED, true).apply()
             }
 
-            // Upper-body expansion: Pull-Up and Atomic Push-Up were added to
-            // HomeGymMovementCatalog after the initial seed shipped. Existing
-            // installs already flipped KEY_HOME_GYM_CATALOG_SEEDED so they
-            // need an additive seed for just these two ids. Fresh installs
-            // already inserted them above and this block is a no-op update
-            // (insertExercises uses REPLACE conflict strategy).
-            if (!prefs.getBoolean(KEY_HOME_GYM_UPPER_EXPANSION_SEEDED, false)) {
+            safeRun(KEY_HOME_GYM_UPPER_EXPANSION_SEEDED) {
                 val newExercises = HomeGymCatalogSeeder.buildExercises()
                     .filter { it.id in UPPER_EXPANSION_IDS }
                 exerciseRepository.insertExercises(newExercises)
                 exerciseRepository.setUserExercises(UPPER_EXPANSION_IDS.toList())
-                prefs.edit().putBoolean(KEY_HOME_GYM_UPPER_EXPANSION_SEEDED, true).apply()
             }
 
-            // Pool expansion #2: 16 movements across lower/pull/push/core/
-            // conditioning buckets, sourced from Marc's written list plus
-            // curated TRX picks from the Stack 52 poster. Same additive-seed
-            // pattern as the upper-body expansion above.
-            if (!prefs.getBoolean(KEY_HOME_GYM_POOL_EXPANSION_2_SEEDED, false)) {
+            safeRun(KEY_HOME_GYM_POOL_EXPANSION_2_SEEDED) {
                 val newExercises = HomeGymCatalogSeeder.buildExercises()
                     .filter { it.id in POOL_EXPANSION_2_IDS }
                 exerciseRepository.insertExercises(newExercises)
                 exerciseRepository.setUserExercises(POOL_EXPANSION_2_IDS.toList())
-                prefs.edit().putBoolean(KEY_HOME_GYM_POOL_EXPANSION_2_SEEDED, true).apply()
             }
 
-            // Pool expansion #3: 12 movements added after the first feedback
-            // loop — forward lunges, kettlebell work, medicine ball core, and
-            // self-toss wall ball squats. Follows the same additive-seed
-            // pattern; each migration flag is independent for auditability.
-            if (!prefs.getBoolean(KEY_HOME_GYM_POOL_EXPANSION_3_SEEDED, false)) {
+            safeRun(KEY_HOME_GYM_POOL_EXPANSION_3_SEEDED) {
                 val newExercises = HomeGymCatalogSeeder.buildExercises()
                     .filter { it.id in POOL_EXPANSION_3_IDS }
                 exerciseRepository.insertExercises(newExercises)
                 exerciseRepository.setUserExercises(POOL_EXPANSION_3_IDS.toList())
-                prefs.edit().putBoolean(KEY_HOME_GYM_POOL_EXPANSION_3_SEEDED, true).apply()
             }
 
-            // LMU leg catalog: hand-curated list of leg movements that may
-            // surface on LMU pull day. Seeds the 9 new movements (the other 2
-            // are reused from the Home Gym catalog) and activates all 11 ids.
-            if (!prefs.getBoolean(KEY_LMU_LEG_CATALOG_SEEDED, false)) {
+            safeRun(KEY_LMU_LEG_CATALOG_SEEDED) {
                 val newLmuLegs = LmuLegCatalog.buildNewExercises()
                 exerciseRepository.insertExercises(newLmuLegs)
                 exerciseRepository.setUserExercises(LmuLegCatalog.allowedIds.toList())
-                prefs.edit().putBoolean(KEY_LMU_LEG_CATALOG_SEEDED, true).apply()
             }
 
-            // Hevy history seed: one-time import of 201 historical workout
-            // sessions from bundled CSV (res/raw/hevy_export.csv). Creates
-            // exercises + completed workouts + recomputes training profile.
-            // Runs after all exercise catalogs are seeded so mappings resolve.
-            if (!prefs.getBoolean(KEY_HEVY_HISTORY_SEEDED, false)) {
-                // All Hevy history is from the LMU gym — look up its ID
-                // so workouts show under the correct gym in Pack History.
+            safeRun(KEY_HEVY_HISTORY_SEEDED) {
                 val lmuGym = gymRepository.getAllGyms().firstOrNull { it.name == "LMU Gym" }
                 hevyHistorySeeder.seedFromBundledCsv(gymId = lmuGym?.id)
-                prefs.edit().putBoolean(KEY_HEVY_HISTORY_SEEDED, true).apply()
             }
 
-            // Auto-complete onboarding since the home screen gym selector
-            // replaces the old FTUE. This ensures isOnboardingComplete() is
-            // true for any code that still checks it.
             userPreferencesRepository.markOnboardingComplete()
 
-            // Gym dedup: the original FTUE created a gym via CreateGymUseCase
-            // on top of the two DB-seeded gyms, producing duplicates (e.g. two
-            // "Home Gym" entries). This one-shot cleanup merges duplicates by
-            // name, reassigning workouts and updating selectedGymId before
-            // deleting the extras.
-            if (!prefs.getBoolean(KEY_GYM_DEDUP_APPLIED, false)) {
+            safeRun(KEY_GYM_DEDUP_APPLIED) {
                 deduplicateGyms()
-                prefs.edit().putBoolean(KEY_GYM_DEDUP_APPLIED, true).apply()
             }
 
-            // Remove "Bodyweight" and "None" from LMU's equipment list so
-            // bodyweight exercises don't appear in LMU strength workouts.
-            // Equipment.kt no longer unconditionally includes bodyweight —
-            // gyms must explicitly list "Bodyweight" to get those exercises.
-            if (!prefs.getBoolean(KEY_LMU_BODYWEIGHT_REMOVED, false)) {
+            safeRun(KEY_LMU_BODYWEIGHT_REMOVED) {
                 val lmuGymForEquip = gymRepository.getAllGyms().firstOrNull { it.name == "LMU Gym" }
                 if (lmuGymForEquip != null) {
                     val filtered = lmuGymForEquip.equipmentList.filterNot { it in listOf("Bodyweight", "None") }
                     gymRepository.updateGym(lmuGymForEquip.copy(equipmentList = filtered))
                 }
-                prefs.edit().putBoolean(KEY_LMU_BODYWEIGHT_REMOVED, true).apply()
             }
 
-            // Activate ExerciseDataV2 exercises in user_exercises so the
-            // workout generator can find them. Previously only HomeGymCatalog
-            // and LmuLegCatalog exercises were activated, leaving LMU with
-            // almost no BACK/BICEP/CHEST/SHOULDER/TRICEP candidates.
-            if (!prefs.getBoolean(KEY_EXERCISEDB_ACTIVATED, false)) {
+            safeRun(KEY_EXERCISEDB_ACTIVATED) {
                 val exerciseDbIds = ExerciseDataV2.exercises.map { it.id }
                 exerciseRepository.setUserExercises(exerciseDbIds)
-                prefs.edit().putBoolean(KEY_EXERCISEDB_ACTIVATED, true).apply()
             }
 
-            // Seed 2 real Home Gym conditioning workouts so Pack History
-            // isn't empty on first launch. Uses deterministic IDs for
-            // idempotency and rollback identification.
-            if (!prefs.getBoolean(KEY_HOME_GYM_HISTORY_SEEDED, false)) {
+            safeRun(KEY_HOME_GYM_HISTORY_SEEDED) {
                 seedHomeGymHistory()
-                prefs.edit().putBoolean(KEY_HOME_GYM_HISTORY_SEEDED, true).apply()
             }
 
-            // Seed today's LMU bench press workout from Hevy (2026-04-12).
-            // Single exercise, 11 sets — pyramid up to 225 and back down.
-            if (!prefs.getBoolean(KEY_LMU_BENCH_20260412_SEEDED, false)) {
+            safeRun(KEY_LMU_BENCH_20260412_SEEDED) {
                 seedLmuBench20260412()
-                prefs.edit().putBoolean(KEY_LMU_BENCH_20260412_SEEDED, true).apply()
             }
 
-            Result.success(count)
-        } catch (e: Exception) {
+            safeRun(KEY_HOME_GYM_EMOM_20260413_SEEDED) {
+                seedHomeGymEmom20260413()
+            }
+
+            Result.success(null)
+        } catch (e: Throwable) {
             Result.failure(e)
+        }
+    }
+
+    /**
+     * Run a seeding step independently — a failure in one step must not
+     * prevent subsequent steps from running. Each step is gated by a
+     * SharedPreferences flag that is set only on success.
+     */
+    private suspend fun safeRun(key: String, block: suspend () -> Unit) {
+        if (prefs.getBoolean(key, false)) return
+        try {
+            block()
+            prefs.edit().putBoolean(key, true).apply()
+        } catch (t: Throwable) {
+            android.util.Log.e("InitExercises", "Step $key failed: ${t.message}", t)
         }
     }
 
@@ -467,6 +432,52 @@ class InitializeExercisesUseCase @Inject constructor(
             sets = sets
         )
         workoutRepository.addExerciseToWorkout(workoutId, workoutExercise)
+
+        profileComputerUseCase.recomputeFullProfile()
+    }
+
+    private suspend fun seedHomeGymEmom20260413() {
+        val homeGym = gymRepository.getAllGyms().firstOrNull { it.name == "Home Gym" } ?: return
+
+        val date = Calendar.getInstance().apply {
+            set(2026, 3, 13, 6, 0, 0) // April 13 2026, 6am
+            set(Calendar.MILLISECOND, 0)
+        }.time
+
+        val exerciseIds = listOf(
+            "custom_kb_swing",
+            "custom_trx_single_arm_row",
+            "custom_atomic_pushup_trx",
+            "custom_trx_mountain_climber"
+        )
+        val resolved = exerciseIds.mapNotNull { exerciseRepository.getExerciseById(it) }
+        if (resolved.size != exerciseIds.size) return
+
+        val prescriptions = listOf("\u00d7 10", "\u00d7 6/side", "\u00d7 10", "\u00d7 40")
+
+        val workoutId = "home_gym_seed_emom_20260413"
+        val workout = Workout(
+            id = workoutId,
+            date = date,
+            type = WorkoutType.PULL,
+            status = WorkoutStatus.COMPLETED,
+            gymId = homeGym.id,
+            format = WorkoutFormat.EMOM,
+            durationMinutes = 20,
+            completedRounds = 5
+        )
+        workoutRepository.createWorkout(workout)
+
+        resolved.forEachIndexed { index, exercise ->
+            val we = WorkoutExercise(
+                id = UUID.randomUUID().toString(),
+                workoutId = workoutId,
+                exercise = exercise,
+                sets = listOf(Set(reps = 0, weight = 0f, completed = true)),
+                prescription = prescriptions[index]
+            )
+            workoutRepository.addExerciseToWorkout(workoutId, we)
+        }
 
         profileComputerUseCase.recomputeFullProfile()
     }

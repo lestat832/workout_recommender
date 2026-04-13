@@ -33,24 +33,13 @@ class WorkoutApplication : Application(), Configuration.Provider {
 
         // Initialize database with exercises
         CoroutineScope(Dispatchers.IO).launch {
-            // Initialize the database with exercises from ExerciseDB (first run only)
             val result = initializeExercisesUseCase()
-
             if (result.isSuccess) {
-                val count = result.getOrNull()
-                if (count != null) {
-                    Log.d(TAG, "✅ Loaded $count exercises from ExerciseDB")
-                } else {
-                    Log.d(TAG, "✅ Exercises already initialized (${initializeExercisesUseCase.getCachedExerciseCount()} exercises)")
-                }
+                Log.d(TAG, "Exercises initialized")
             } else {
-                Log.e(TAG, "❌ Failed to initialize exercises: ${result.exceptionOrNull()?.message}")
+                Log.e(TAG, "Exercise init failed: ${result.exceptionOrNull()?.message}")
             }
-
-            // Legacy initialization (if needed for other data)
             initializeDatabaseUseCase()
-
-            // Note: Debug data import removed - now manual via debug menu "Import Marc" button
         }
     }
 

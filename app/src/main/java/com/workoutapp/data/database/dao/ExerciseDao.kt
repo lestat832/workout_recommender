@@ -72,7 +72,10 @@ interface ExerciseDao {
     
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUserExercise(userExercise: UserExerciseEntity)
-    
+
+    @Query("SELECT COUNT(*) > 0 FROM user_exercises WHERE exerciseId = :exerciseId")
+    suspend fun isUserExerciseExists(exerciseId: String): Boolean
+
     @Query("UPDATE user_exercises SET isActive = :isActive WHERE exerciseId = :exerciseId")
     suspend fun updateUserExerciseStatus(exerciseId: String, isActive: Boolean)
     

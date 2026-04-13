@@ -11,9 +11,12 @@ import com.workoutapp.domain.repository.ExerciseRepository
 import com.workoutapp.domain.repository.GymRepository
 import com.workoutapp.domain.repository.TrainingProfileRepository
 import com.workoutapp.domain.repository.WorkoutRepository
+import android.util.Log
 import java.util.Calendar
 import java.util.Date
 import javax.inject.Inject
+
+private const val TAG = "FortisLupus"
 
 class GenerateWorkoutUseCase @Inject constructor(
     private val exerciseRepository: ExerciseRepository,
@@ -38,6 +41,7 @@ class GenerateWorkoutUseCase @Inject constructor(
         // Recent exercise IDs to avoid (7-day cooldown, completed workouts only
         // per Phase 0).
         val recentExerciseIds = workoutRepository.getExerciseIdsFromLastWeek()
+        Log.d(TAG, "Cooldown: excluded ${recentExerciseIds.size} exercises from last 7 days")
 
         // Filter by ExerciseCategory (Phase 0 taxonomy) instead of the legacy
         // Exercise.category: WorkoutType field. PULL pulls from STRENGTH_PULL
@@ -80,7 +84,10 @@ class GenerateWorkoutUseCase @Inject constructor(
                 profile == null || !profile.plateauFlag
             }
             val pool = nonPlateau.ifEmpty { filtered }
-            pool.randomOrNull()
+            pool.randomOrNull()?.also { picked ->
+                val profile = exerciseProfiles[picked.id]
+                Log.d(TAG, "Selected ${picked.name} for $muscleGroup (pool=${pool.size}, plateau=${profile?.plateauFlag ?: false})")
+            }
         }.take(3)
 
         return GeneratedWorkout(type = workoutType, exercises = selected)

@@ -131,13 +131,14 @@ class HomeViewModel @Inject constructor(
     private fun updateNextType(gymId: Long?) {
         if (gymId == null) return
         // Update the style first so HomeScreen can branch the card even before
-        // the predict call resolves (conditioning gyms don't need prediction).
+        // the predict call resolves.
         val style = _gyms.value.firstOrNull { it.id == gymId }?.workoutStyle
         _selectedGymStyle.value = style
         if (style == GymWorkoutStyle.CONDITIONING) {
-            // Seed a fresh random format for the card. Stable until the next
-            // recompute (gym switch, workout completion) or a skip() flip.
-            _nextWorkoutFormat.value = generateConditioningWorkoutUseCase.predictNextFormat()
+            viewModelScope.launch {
+                _nextWorkoutFormat.value =
+                    generateConditioningWorkoutUseCase.predictNextFormat(gymId)
+            }
             return
         }
         // Strength gym — clear any stale format from a prior CONDITIONING gym.

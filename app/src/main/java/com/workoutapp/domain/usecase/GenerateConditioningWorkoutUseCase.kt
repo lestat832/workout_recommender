@@ -8,7 +8,6 @@ import com.workoutapp.domain.model.WorkoutFormat
 import com.workoutapp.domain.repository.ExerciseRepository
 import com.workoutapp.domain.repository.WorkoutRepository
 import javax.inject.Inject
-import kotlin.random.Random
 
 /**
  * Generates a Home Gym conditioning workout from the hand-curated
@@ -47,12 +46,35 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
     }
 
     /**
-     * Picks a random conditioning format. Centralized so HomeViewModel and the
-     * use case share one source of randomness — lets the NextWorkoutCard
-     * display the same format the use case will actually generate.
+     * Predicts the next conditioning format by alternating from the last
+     * completed conditioning workout at this gym within the current week.
+     * Falls back to EMOM when no history exists or the last workout was
+     * in a prior week.
      */
-    fun predictNextFormat(): WorkoutFormat =
-        if (Random.nextBoolean()) WorkoutFormat.EMOM else WorkoutFormat.AMRAP
+    suspend fun predictNextFormat(gymId: Long): WorkoutFormat {
+        val lastWorkout = workoutRepository.getLastCompletedWorkoutByGym(gymId)
+        if (lastWorkout == null) return WorkoutFormat.EMOM
+
+        val weekStart = currentWeekStartMonday()
+        if (lastWorkout.date.before(weekStart)) return WorkoutFormat.EMOM
+
+        return when (lastWorkout.format) {
+            WorkoutFormat.EMOM -> WorkoutFormat.AMRAP
+            WorkoutFormat.AMRAP -> WorkoutFormat.EMOM
+            else -> WorkoutFormat.EMOM
+        }
+    }
+
+    private fun currentWeekStartMonday(): java.util.Date {
+        val cal = java.util.Calendar.getInstance()
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        cal.set(java.util.Calendar.MINUTE, 0)
+        cal.set(java.util.Calendar.SECOND, 0)
+        cal.set(java.util.Calendar.MILLISECOND, 0)
+        val daysFromMonday = (cal.get(java.util.Calendar.DAY_OF_WEEK) - java.util.Calendar.MONDAY + 7) % 7
+        cal.add(java.util.Calendar.DAY_OF_YEAR, -daysFromMonday)
+        return cal.time
+    }
 
     suspend operator fun invoke(
         gymId: Long,
@@ -61,7 +83,7 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
         // Skip-button flow: when the caller forces a format (user tapped skip
         // on the NextWorkoutCard), use it verbatim. Otherwise pick fresh via
         // predictNextFormat so this path stays consistent with the preview.
-        val format = formatOverride ?: predictNextFormat()
+        val format = formatOverride ?: predictNextFormat(gymId)
         val expectedCount = expectedStationCount(format)
 
         val existingFingerprints = workoutRepository

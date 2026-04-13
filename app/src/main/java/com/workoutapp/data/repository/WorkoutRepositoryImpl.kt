@@ -162,6 +162,11 @@ class WorkoutRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getExerciseLastPerformedDates(): Map<String, Date> {
+        return workoutDao.getExerciseLastPerformedDates()
+            .associate { it.exerciseId to it.lastDate }
+    }
+
     private fun WorkoutEntity.toDomain(exercises: List<WorkoutExercise>): Workout = Workout(
         id = id,
         date = date,

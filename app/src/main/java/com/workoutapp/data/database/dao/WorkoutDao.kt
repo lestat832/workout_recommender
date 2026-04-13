@@ -7,6 +7,11 @@ import com.workoutapp.domain.model.WorkoutStatus
 import kotlinx.coroutines.flow.Flow
 import java.util.Date
 
+data class ExerciseLastPerformed(
+    val exerciseId: String,
+    val lastDate: Date
+)
+
 @Dao
 interface WorkoutDao {
     @Insert
@@ -81,4 +86,13 @@ interface WorkoutDao {
 
     @Query("SELECT * FROM workouts WHERE gymId = :gymId AND status = 'IN_PROGRESS' AND format IN ('EMOM', 'AMRAP') ORDER BY date DESC LIMIT 1")
     suspend fun getInProgressConditioningWorkout(gymId: Long): WorkoutEntity?
+
+    @Query("""
+        SELECT we.exerciseId, MAX(w.date) as lastDate
+        FROM workout_exercises we
+        INNER JOIN workouts w ON we.workoutId = w.id
+        WHERE w.status = 'COMPLETED'
+        GROUP BY we.exerciseId
+    """)
+    suspend fun getExerciseLastPerformedDates(): List<ExerciseLastPerformed>
 }

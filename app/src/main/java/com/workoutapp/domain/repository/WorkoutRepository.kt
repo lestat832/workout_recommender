@@ -24,4 +24,5 @@ interface WorkoutRepository {
     fun getCompletedWorkoutsByGym(gymId: Long): Flow<List<Workout>>
     suspend fun getInProgressStrengthWorkout(gymId: Long): Workout?
     suspend fun getInProgressConditioningWorkout(gymId: Long): Workout?
+    suspend fun getExerciseLastPerformedDates(): Map<String, Date>
 }

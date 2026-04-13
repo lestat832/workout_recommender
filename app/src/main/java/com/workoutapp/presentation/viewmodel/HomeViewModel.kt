@@ -12,6 +12,7 @@ import com.workoutapp.domain.repository.ExerciseRepository
 import com.workoutapp.domain.repository.GymRepository
 import com.workoutapp.domain.repository.UserPreferencesRepository
 import com.workoutapp.domain.repository.WorkoutRepository
+import com.workoutapp.domain.usecase.DeleteWorkoutUseCase
 import com.workoutapp.domain.usecase.GenerateConditioningWorkoutUseCase
 import com.workoutapp.domain.usecase.GenerateWorkoutUseCase
 import com.workoutapp.domain.usecase.ImportDebugDataUseCase
@@ -35,7 +36,8 @@ class HomeViewModel @Inject constructor(
     private val generateWorkoutUseCase: GenerateWorkoutUseCase,
     private val generateConditioningWorkoutUseCase: GenerateConditioningWorkoutUseCase,
     private val importWorkoutUseCase: ImportWorkoutUseCase,
-    private val importDebugDataUseCase: ImportDebugDataUseCase
+    private val importDebugDataUseCase: ImportDebugDataUseCase,
+    private val deleteWorkoutUseCase: DeleteWorkoutUseCase
 ) : ViewModel() {
 
     private val _lastWorkout = MutableStateFlow<Workout?>(null)
@@ -175,6 +177,12 @@ class HomeViewModel @Inject constructor(
         }.toFloat()
     }
     
+    fun deleteWorkout(workoutId: String) {
+        viewModelScope.launch {
+            deleteWorkoutUseCase(workoutId)
+        }
+    }
+
     fun importWorkouts(csvContent: String) {
         viewModelScope.launch {
             _importState.value = ImportState.Loading

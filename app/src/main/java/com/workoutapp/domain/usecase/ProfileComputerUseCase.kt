@@ -21,7 +21,10 @@ class ProfileComputerUseCase @Inject constructor(
 
     suspend fun recomputeFullProfile() {
         val allWorkouts = workoutRepository.getAllCompletedWorkoutsWithExercises()
-        if (allWorkouts.isEmpty()) return
+        if (allWorkouts.isEmpty()) {
+            profileRepository.deleteAllProfiles()
+            return
+        }
 
         val now = System.currentTimeMillis()
 

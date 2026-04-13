@@ -5,7 +5,9 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -464,7 +466,11 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(recentWorkouts) { workout ->
-                        WorkoutHistoryCard(workout, viewModel)
+                        WorkoutHistoryCard(
+                            workout = workout,
+                            viewModel = viewModel,
+                            onDelete = { viewModel.deleteWorkout(workout.id) }
+                        )
                     }
                 }
             }
@@ -672,17 +678,42 @@ fun NextWorkoutCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun WorkoutHistoryCard(workout: Workout, viewModel: HomeViewModel) {
+fun WorkoutHistoryCard(workout: Workout, viewModel: HomeViewModel, onDelete: () -> Unit = {}) {
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     var isExpanded by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
     val totalWeight = viewModel.calculateTotalWeight(workout)
-    
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Workout") },
+            text = { Text("Delete this workout? This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    onDelete()
+                }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { isExpanded = !isExpanded }
+            .combinedClickable(
+                onClick = { isExpanded = !isExpanded },
+                onLongClick = { showDeleteDialog = true }
+            )
     ) {
         Column(
             modifier = Modifier

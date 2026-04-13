@@ -11,6 +11,7 @@ import com.workoutapp.domain.model.WorkoutFormat
 import com.workoutapp.domain.model.WorkoutStatus
 import com.workoutapp.domain.model.WorkoutType
 import com.workoutapp.domain.repository.WorkoutRepository
+import com.workoutapp.domain.usecase.DeleteWorkoutUseCase
 import com.workoutapp.domain.usecase.GenerateConditioningWorkoutUseCase
 import com.workoutapp.domain.usecase.GenerateConditioningWorkoutUseCase.Companion.AMRAP_DURATION_MINUTES
 import com.workoutapp.domain.usecase.GenerateConditioningWorkoutUseCase.Companion.EMOM_DURATION_MINUTES
@@ -33,7 +34,8 @@ class ConditioningWorkoutViewModel @Inject constructor(
     private val workoutRepository: WorkoutRepository,
     private val generateConditioningWorkoutUseCase: GenerateConditioningWorkoutUseCase,
     private val profileComputerUseCase: ProfileComputerUseCase,
-    private val stravaSyncManager: StravaSyncManager
+    private val stravaSyncManager: StravaSyncManager,
+    private val deleteWorkoutUseCase: DeleteWorkoutUseCase
 ) : AndroidViewModel(application) {
 
     private val gymId: Long? = savedStateHandle["gymId"]
@@ -178,7 +180,7 @@ class ConditioningWorkoutViewModel @Inject constructor(
     fun cancelWorkout() {
         viewModelScope.launch {
             currentWorkout?.let { workout ->
-                workoutRepository.deleteWorkout(workout.id)
+                deleteWorkoutUseCase(workout.id)
             }
         }
     }

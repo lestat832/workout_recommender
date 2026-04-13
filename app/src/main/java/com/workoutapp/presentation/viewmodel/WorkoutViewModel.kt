@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.workoutapp.domain.model.*
 import com.workoutapp.domain.repository.ExerciseRepository
 import com.workoutapp.domain.repository.WorkoutRepository
+import com.workoutapp.domain.usecase.DeleteWorkoutUseCase
 import com.workoutapp.domain.usecase.GenerateWorkoutUseCase
 import com.workoutapp.domain.usecase.ProfileComputerUseCase
 import com.workoutapp.data.sync.StravaSyncManager
@@ -32,7 +33,8 @@ class WorkoutViewModel @Inject constructor(
     private val generateWorkoutUseCase: GenerateWorkoutUseCase,
     private val profileComputerUseCase: ProfileComputerUseCase,
     private val profileRepository: TrainingProfileRepository,
-    private val stravaSyncManager: StravaSyncManager
+    private val stravaSyncManager: StravaSyncManager,
+    private val deleteWorkoutUseCase: DeleteWorkoutUseCase
 ) : AndroidViewModel(application) {
 
     private val gymId: Long? = savedStateHandle["gymId"]
@@ -343,8 +345,7 @@ class WorkoutViewModel @Inject constructor(
     fun cancelWorkout() {
         viewModelScope.launch {
             currentWorkout?.let { workout ->
-                // Delete the workout entirely
-                workoutRepository.deleteWorkout(workout.id)
+                deleteWorkoutUseCase(workout.id)
                 _uiState.value = _uiState.value.copy(isCompleted = true)
             }
         }

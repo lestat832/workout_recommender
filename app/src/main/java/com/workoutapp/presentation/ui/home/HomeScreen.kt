@@ -5,8 +5,14 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -28,7 +34,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.workoutapp.domain.model.Gym
+import com.workoutapp.domain.model.GymWorkoutStyle
 import com.workoutapp.domain.model.Workout
+import com.workoutapp.domain.model.WorkoutFormat
 import com.workoutapp.domain.model.WorkoutType
 import com.workoutapp.presentation.viewmodel.HomeViewModel
 import com.workoutapp.presentation.viewmodel.ImportState
@@ -55,13 +64,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     stravaAuthViewModel: com.workoutapp.presentation.settings.StravaAuthViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
-    onStartWorkout: () -> Unit,
+    onStartWorkout: (Long, GymWorkoutStyle, WorkoutType?, WorkoutFormat?) -> Unit,
     onNavigateToSettings: () -> Unit = {}
 ) {
-    val lastWorkout by viewModel.lastWorkout.collectAsState()
     val recentWorkouts by viewModel.recentWorkouts.collectAsState()
     val importState by viewModel.importState.collectAsState()
     val stravaAuthState by stravaAuthViewModel.authState.collectAsState()
+    val gyms by viewModel.gyms.collectAsState()
+    val selectedGymId by viewModel.selectedGymId.collectAsState()
+    val nextWorkoutType by viewModel.nextWorkoutType.collectAsState()
+    val selectedGymStyle by viewModel.selectedGymStyle.collectAsState()
+    val nextWorkoutFormat by viewModel.nextWorkoutFormat.collectAsState()
 
     var showDebugMenu by remember { mutableStateOf(false) }
     var showSettingsMenu by remember { mutableStateOf(false) }
@@ -142,36 +155,27 @@ fun HomeScreen(
                     }
                 },
                 actions = {
-                    // Strava connection status indicator
-                    if (stravaAuthState?.isAuthenticated() == true) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            shape = MaterialTheme.shapes.small,
-                            modifier = Modifier.padding(end = 8.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Text(
-                                    text = "🟠",
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                                Text(
-                                    text = "Strava",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    // Settings gear with Strava status dot
+                    IconButton(onClick = { showSettingsMenu = true }) {
+                        Box {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Settings"
+                            )
+                            // Orange dot when Strava is connected
+                            if (stravaAuthState?.isAuthenticated() == true) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .align(Alignment.TopEnd)
+                                        .offset(x = 2.dp, y = (-2).dp)
+                                        .background(
+                                            color = Color(0xFFFC4C02),
+                                            shape = CircleShape
+                                        )
                                 )
                             }
                         }
-                    }
-
-                    IconButton(onClick = { showSettingsMenu = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings"
-                        )
                     }
 
                     DropdownMenu(
@@ -199,13 +203,6 @@ fun HomeScreen(
                 }
             )
         },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onStartWorkout,
-                icon = { Icon(Icons.Default.Add, contentDescription = "Start Workout") },
-                text = { Text("Begin the Hunt") }
-            )
-        }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -392,8 +389,33 @@ fun HomeScreen(
                 }
             }
             
-            NextWorkoutCard(lastWorkout, testDateOffset)
-            
+            if (gyms.isNotEmpty()) {
+                GymSelector(
+                    gyms = gyms,
+                    selectedGymId = selectedGymId,
+                    onSelectGym = { viewModel.selectGym(it) }
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            NextWorkoutCard(
+                nextWorkoutType = nextWorkoutType,
+                nextWorkoutFormat = nextWorkoutFormat,
+                gymStyle = selectedGymStyle,
+                dateOffset = testDateOffset,
+                onTap = {
+                    val id = selectedGymId
+                    val style = selectedGymStyle
+                    if (id != null && style != null) {
+                        // Always forward the currently-previewed type/format as
+                        // an override so what the user sees on the card is what
+                        // the use case generates — whether or not skip was hit.
+                        onStartWorkout(id, style, nextWorkoutType, nextWorkoutFormat)
+                    }
+                },
+                onSkip = { viewModel.skip() }
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
             
             Text(
@@ -439,7 +461,11 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(recentWorkouts) { workout ->
-                        WorkoutHistoryCard(workout, viewModel)
+                        WorkoutHistoryCard(
+                            workout = workout,
+                            viewModel = viewModel,
+                            onDelete = { viewModel.deleteWorkout(workout.id) }
+                        )
                     }
                 }
             }
@@ -511,19 +537,56 @@ fun HomeScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NextWorkoutCard(lastWorkout: Workout?, dateOffset: Int = 0) {
-    val nextWorkoutType = if (lastWorkout?.type == WorkoutType.PUSH) {
-        WorkoutType.PULL
-    } else {
-        WorkoutType.PUSH
+fun GymSelector(
+    gyms: List<Gym>,
+    selectedGymId: Long?,
+    onSelectGym: (Long) -> Unit
+) {
+    // Render every gym so no persisted selection can be hidden from the user.
+    // Phase 1 always has exactly 2 gyms post-migration; Phase 6 multi-gym UI
+    // will replace this Row with a scrollable/wrapped layout.
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        gyms.forEach { gym ->
+            val isSelected = gym.id == selectedGymId
+            FilterChip(
+                selected = isSelected,
+                onClick = { onSelectGym(gym.id) },
+                label = {
+                    Text(
+                        text = gym.name,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NextWorkoutCard(
+    nextWorkoutType: WorkoutType,
+    nextWorkoutFormat: WorkoutFormat?,
+    gymStyle: GymWorkoutStyle?,
+    dateOffset: Int = 0,
+    onTap: () -> Unit = {},
+    onSkip: () -> Unit = {}
+) {
     val dateFormat = SimpleDateFormat("EEEE, MMMM d", Locale.getDefault())
     val calendar = Calendar.getInstance()
     calendar.add(Calendar.DAY_OF_YEAR, dateOffset)
     val today = calendar.time
-    
+    val canStart = gymStyle != null
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = canStart, onClick = onTap),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer
         )
@@ -549,41 +612,103 @@ fun NextWorkoutCard(lastWorkout: Workout?, dateOffset: Int = 0) {
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
+            val (title, subtitle) = when (gymStyle) {
+                // Conditioning gyms reveal the resolved format so skip has
+                // something to flip against. EMOM is 20 min (4 stations × 5
+                // rounds, built-in rest per 60s), AMRAP is 15 min
+                // (continuous metcon pace). Falls back to the combined hint
+                // if the VM hasn't seeded a format yet.
+                GymWorkoutStyle.CONDITIONING -> "Pack Run" to when (nextWorkoutFormat) {
+                    WorkoutFormat.EMOM -> "EMOM • 20 min"
+                    WorkoutFormat.AMRAP -> "AMRAP • 15 min"
+                    else -> "EMOM 20 min or AMRAP 15 min"
+                }
+                else -> when (nextWorkoutType) {
+                    WorkoutType.PUSH -> "Alpha Training" to "Chest • Shoulders • Triceps"
+                    WorkoutType.PULL -> "Pack Strength" to "Legs • Back • Biceps"
+                }
+            }
+
             Text(
-                text = when (nextWorkoutType) {
-                    WorkoutType.PUSH -> "Alpha Training"
-                    WorkoutType.PULL -> "Pack Strength"
-                },
+                text = title,
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-            
+
             Text(
-                text = when (nextWorkoutType) {
-                    WorkoutType.PUSH -> "Chest • Shoulders • Triceps"
-                    WorkoutType.PULL -> "Legs • Back • Biceps"
-                },
+                text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
             )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Nested Skip button resolves via hit-testing: the TextButton
+            // consumes its click, the rest of the card still triggers onTap.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Tap to begin the hunt →",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                )
+                TextButton(
+                    onClick = onSkip,
+                    enabled = canStart
+                ) {
+                    Text(
+                        text = "Skip",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun WorkoutHistoryCard(workout: Workout, viewModel: HomeViewModel) {
+fun WorkoutHistoryCard(workout: Workout, viewModel: HomeViewModel, onDelete: () -> Unit = {}) {
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
     var isExpanded by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
     val totalWeight = viewModel.calculateTotalWeight(workout)
-    
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Workout") },
+            text = { Text("Delete this workout? This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    onDelete()
+                }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { isExpanded = !isExpanded }
+            .combinedClickable(
+                onClick = { isExpanded = !isExpanded },
+                onLongClick = { showDeleteDialog = true }
+            )
     ) {
         Column(
             modifier = Modifier
@@ -598,7 +723,11 @@ fun WorkoutHistoryCard(workout: Workout, viewModel: HomeViewModel) {
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "${workout.type.name} Workout",
+                        text = if (workout.format == WorkoutFormat.AMRAP || workout.format == WorkoutFormat.EMOM) {
+                            "${workout.format.name} Workout"
+                        } else {
+                            "${workout.type.name} Workout"
+                        },
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium
                     )
@@ -619,6 +748,19 @@ fun WorkoutHistoryCard(workout: Workout, viewModel: HomeViewModel) {
                             )
                             Text(
                                 text = "${String.format("%,.0f", totalWeight)} lbs total",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        if ((workout.format == WorkoutFormat.AMRAP || workout.format == WorkoutFormat.EMOM) && workout.completedRounds != null) {
+                            Text(
+                                text = "•",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "${workout.completedRounds} rounds",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Medium

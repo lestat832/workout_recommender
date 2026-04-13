@@ -2,6 +2,7 @@ package com.workoutapp.data.database.entities
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.workoutapp.domain.model.WorkoutFormat
 import com.workoutapp.domain.model.WorkoutStatus
 import com.workoutapp.domain.model.WorkoutType
 import java.util.Date
@@ -13,5 +14,8 @@ data class WorkoutEntity(
     val date: Date,
     val type: WorkoutType,
     val status: WorkoutStatus,
-    val gymId: Long? = null
+    val gymId: Long? = null,
+    val format: WorkoutFormat = WorkoutFormat.STRENGTH,
+    val durationMinutes: Int? = null,
+    val completedRounds: Int? = null
 )

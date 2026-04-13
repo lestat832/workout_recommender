@@ -15,6 +15,12 @@ object EquipmentType {
     const val SMITH_MACHINE = "Smith Machine"
     const val KETTLEBELL = "Kettlebell"
     const val RESISTANCE_BAND = "Resistance Band"
+    const val SUSPENSION_TRAINER = "Suspension Trainer"
+    const val MEDICINE_BALL = "Medicine Ball"
+    const val AB_WHEEL = "Ab Wheel"
+    const val INDOOR_ROWER = "Indoor Rower"
+    const val INDOOR_BIKE = "Indoor Bike"
+    const val JUMP_ROPE = "Jump Rope"
     const val NONE = "None"
     const val OTHER = "Other"
 
@@ -80,6 +86,42 @@ object EquipmentType {
         "Elastic Band"
     )
 
+    val SUSPENSION_TRAINER_VARIANTS = setOf(
+        "Suspension Trainer",
+        "TRX",
+        "Suspension Straps"
+    )
+
+    val MEDICINE_BALL_VARIANTS = setOf(
+        "Medicine Ball",
+        "Med Ball",
+        "Slam Ball"
+    )
+
+    val AB_WHEEL_VARIANTS = setOf(
+        "Ab Wheel",
+        "Ab Roller",
+        "Ab Wheel Roller"
+    )
+
+    val INDOOR_ROWER_VARIANTS = setOf(
+        "Indoor Rower",
+        "Rower",
+        "Rowing Machine"
+    )
+
+    val INDOOR_BIKE_VARIANTS = setOf(
+        "Indoor Bike",
+        "Stationary Bike",
+        "Exercise Bike",
+        "Assault Bike"
+    )
+
+    val JUMP_ROPE_VARIANTS = setOf(
+        "Jump Rope",
+        "Skipping Rope"
+    )
+
     /**
      * All equipment types available for gym setup.
      * Displayed in this order in the UI.
@@ -94,6 +136,12 @@ object EquipmentType {
         SMITH_MACHINE,
         KETTLEBELL,
         RESISTANCE_BAND,
+        SUSPENSION_TRAINER,
+        MEDICINE_BALL,
+        AB_WHEEL,
+        INDOOR_ROWER,
+        INDOOR_BIKE,
+        JUMP_ROPE,
         NONE,
         OTHER
     )
@@ -111,9 +159,6 @@ object EquipmentType {
      * @return true if the gym equipment can be used for the exercise
      */
     fun matches(exerciseEquipment: String, gymEquipment: String): Boolean {
-        // Bodyweight exercises always included
-        if (exerciseEquipment in BODYWEIGHT_VARIANTS) return true
-
         // Exact match (case-insensitive)
         if (exerciseEquipment.equals(gymEquipment, ignoreCase = true)) return true
 
@@ -127,6 +172,12 @@ object EquipmentType {
             BENCH -> exerciseEquipment in BENCH_VARIANTS
             KETTLEBELL -> exerciseEquipment in KETTLEBELL_VARIANTS
             RESISTANCE_BAND -> exerciseEquipment in RESISTANCE_BAND_VARIANTS
+            SUSPENSION_TRAINER -> exerciseEquipment in SUSPENSION_TRAINER_VARIANTS
+            MEDICINE_BALL -> exerciseEquipment in MEDICINE_BALL_VARIANTS
+            AB_WHEEL -> exerciseEquipment in AB_WHEEL_VARIANTS
+            INDOOR_ROWER -> exerciseEquipment in INDOOR_ROWER_VARIANTS
+            INDOOR_BIKE -> exerciseEquipment in INDOOR_BIKE_VARIANTS
+            JUMP_ROPE -> exerciseEquipment in JUMP_ROPE_VARIANTS
             SMITH_MACHINE -> exerciseEquipment == "Smith Machine"
             NONE -> exerciseEquipment in BODYWEIGHT_VARIANTS
             OTHER -> false // "Other" doesn't match anything by default
@@ -142,9 +193,6 @@ object EquipmentType {
      * @return true if the exercise can be performed with available equipment
      */
     fun canPerformExercise(exerciseEquipment: String, availableEquipment: List<String>): Boolean {
-        // Bodyweight exercises can always be performed
-        if (exerciseEquipment in BODYWEIGHT_VARIANTS) return true
-
         // Check if any gym equipment matches the exercise requirement
         return availableEquipment.any { gymEquipment ->
             matches(exerciseEquipment, gymEquipment)

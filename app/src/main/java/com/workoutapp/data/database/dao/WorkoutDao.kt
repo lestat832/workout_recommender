@@ -32,21 +32,53 @@ interface WorkoutDao {
     
     @Query("SELECT * FROM workouts ORDER BY date DESC LIMIT 1")
     suspend fun getLastWorkout(): WorkoutEntity?
-    
+
+    @Query("SELECT * FROM workouts WHERE gymId = :gymId AND status = 'COMPLETED' ORDER BY date DESC LIMIT 1")
+    suspend fun getLastCompletedWorkoutByGym(gymId: Long): WorkoutEntity?
+
+    @Query("""
+        SELECT * FROM workouts
+        WHERE gymId = :gymId
+          AND format IN ('EMOM','AMRAP')
+          AND date >= :startDate
+          AND date < :endDate
+        ORDER BY date DESC
+    """)
+    suspend fun getConditioningWorkoutsInRange(
+        gymId: Long,
+        startDate: Date,
+        endDate: Date
+    ): List<WorkoutEntity>
+
     @Query("SELECT * FROM workouts WHERE status = :status ORDER BY date DESC")
     fun getWorkoutsByStatus(status: WorkoutStatus): Flow<List<WorkoutEntity>>
-    
+
     @Query("SELECT * FROM workout_exercises WHERE workoutId = :workoutId")
     suspend fun getWorkoutExercises(workoutId: String): List<WorkoutExerciseEntity>
-    
+
     @Query("""
-        SELECT DISTINCT we.exerciseId 
-        FROM workout_exercises we 
-        INNER JOIN workouts w ON we.workoutId = w.id 
-        WHERE w.date >= :startDate
+        SELECT DISTINCT we.exerciseId
+        FROM workout_exercises we
+        INNER JOIN workouts w ON we.workoutId = w.id
+        WHERE w.date >= :startDate AND w.status = 'COMPLETED'
     """)
     suspend fun getExerciseIdsFromDate(startDate: Date): List<String>
     
     @Query("SELECT * FROM workouts ORDER BY date DESC")
     fun getAllWorkouts(): Flow<List<WorkoutEntity>>
+
+    @Query("SELECT * FROM workouts WHERE status = 'COMPLETED' ORDER BY date DESC")
+    suspend fun getAllCompletedWorkouts(): List<WorkoutEntity>
+
+    @Query("SELECT * FROM workouts WHERE gymId = :gymId AND status = 'COMPLETED' ORDER BY date DESC")
+    fun getCompletedWorkoutsByGym(gymId: Long): Flow<List<WorkoutEntity>>
+
+    @Query("UPDATE workouts SET gymId = :newGymId WHERE gymId = :oldGymId")
+    suspend fun reassignWorkouts(oldGymId: Long, newGymId: Long)
+
+    @Query("SELECT * FROM workouts WHERE gymId = :gymId AND status IN ('IN_PROGRESS', 'INCOMPLETE') AND format = 'STRENGTH' ORDER BY date DESC LIMIT 1")
+    suspend fun getInProgressStrengthWorkout(gymId: Long): WorkoutEntity?
+
+    @Query("SELECT * FROM workouts WHERE gymId = :gymId AND status = 'IN_PROGRESS' AND format IN ('EMOM', 'AMRAP') ORDER BY date DESC LIMIT 1")
+    suspend fun getInProgressConditioningWorkout(gymId: Long): WorkoutEntity?
 }

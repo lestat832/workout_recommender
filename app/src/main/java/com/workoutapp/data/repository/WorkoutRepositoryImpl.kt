@@ -2,6 +2,7 @@ package com.workoutapp.data.repository
 
 import com.workoutapp.data.database.dao.ExerciseDao
 import com.workoutapp.data.database.dao.WorkoutDao
+import com.workoutapp.data.database.entities.ExerciseEntity
 import com.workoutapp.data.database.entities.WorkoutEntity
 import com.workoutapp.data.database.entities.WorkoutExerciseEntity
 import com.workoutapp.domain.model.*
@@ -15,92 +16,90 @@ class WorkoutRepositoryImpl @Inject constructor(
     private val workoutDao: WorkoutDao,
     private val exerciseDao: ExerciseDao
 ) : WorkoutRepository {
-    
+
     override suspend fun createWorkout(workout: Workout): String {
         val workoutEntity = WorkoutEntity(
             id = workout.id,
             date = workout.date,
             type = workout.type,
-            status = workout.status
+            status = workout.status,
+            gymId = workout.gymId,
+            format = workout.format,
+            durationMinutes = workout.durationMinutes,
+            completedRounds = workout.completedRounds
         )
         workoutDao.insertWorkout(workoutEntity)
         return workout.id
     }
-    
+
     override suspend fun updateWorkout(workout: Workout) {
         val workoutEntity = WorkoutEntity(
             id = workout.id,
             date = workout.date,
             type = workout.type,
-            status = workout.status
+            status = workout.status,
+            gymId = workout.gymId,
+            format = workout.format,
+            durationMinutes = workout.durationMinutes,
+            completedRounds = workout.completedRounds
         )
         workoutDao.updateWorkout(workoutEntity)
     }
-    
+
     override suspend fun deleteWorkout(workoutId: String) {
-        // Delete workout exercises first
         workoutDao.deleteWorkoutExercises(workoutId)
-        // Then delete the workout
         workoutDao.deleteWorkout(workoutId)
     }
-    
+
     override suspend fun getWorkoutById(id: String): Workout? {
         val workoutEntity = workoutDao.getWorkoutById(id) ?: return null
         val exerciseEntities = workoutDao.getWorkoutExercises(id)
-        
+
         val exercises = exerciseEntities.map { exerciseEntity ->
-            val exercise = exerciseDao.getExercisesByType(WorkoutType.PUSH)
-                .firstOrNull { it.id == exerciseEntity.exerciseId }
-                ?: exerciseDao.getExercisesByType(WorkoutType.PULL)
-                    .firstOrNull { it.id == exerciseEntity.exerciseId }
-            
-            
+            val exercise = exerciseDao.getExerciseById(exerciseEntity.exerciseId)
+                ?: throw IllegalStateException("Exercise not found: ${exerciseEntity.exerciseId}")
+
             WorkoutExercise(
                 id = exerciseEntity.id,
                 workoutId = exerciseEntity.workoutId,
-                exercise = exercise?.let {
-                    Exercise(
-                        id = it.id,
-                        name = it.name,
-                        muscleGroups = it.muscleGroups,
-                        equipment = it.equipment,
-                        category = it.category,
-                        imageUrl = it.imageUrl,
-                        instructions = it.instructions,
-                        isUserCreated = it.isUserCreated
-                    )
-                } ?: throw IllegalStateException("Exercise not found"),
+                exercise = exercise.toDomain(),
                 sets = exerciseEntity.sets
             )
         }
-        
-        return Workout(
-            id = workoutEntity.id,
-            date = workoutEntity.date,
-            type = workoutEntity.type,
-            status = workoutEntity.status,
-            exercises = exercises
-        )
+
+        return workoutEntity.toDomain(exercises)
     }
-    
+
     override suspend fun getLastWorkout(): Workout? {
         val workoutEntity = workoutDao.getLastWorkout() ?: return null
         return getWorkoutById(workoutEntity.id)
     }
-    
+
+    override suspend fun getLastCompletedWorkoutByGym(gymId: Long): Workout? {
+        val workoutEntity = workoutDao.getLastCompletedWorkoutByGym(gymId) ?: return null
+        return getWorkoutById(workoutEntity.id)
+    }
+
+    override suspend fun getConditioningWorkoutsInMonth(gymId: Long): List<Workout> {
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        val monthStart = cal.time
+        cal.add(Calendar.MONTH, 1)
+        val monthEnd = cal.time
+        val entities = workoutDao.getConditioningWorkoutsInRange(gymId, monthStart, monthEnd)
+        return entities.mapNotNull { getWorkoutById(it.id) }
+    }
+
     override fun getWorkoutsByStatus(status: WorkoutStatus): Flow<List<Workout>> {
         return workoutDao.getWorkoutsByStatus(status).map { workouts ->
-            workouts.map { workoutEntity ->
-                Workout(
-                    id = workoutEntity.id,
-                    date = workoutEntity.date,
-                    type = workoutEntity.type,
-                    status = workoutEntity.status
-                )
-            }
+            workouts.map { it.toDomain(emptyList()) }
         }
     }
-    
+
     override suspend fun addExerciseToWorkout(workoutId: String, exercise: WorkoutExercise) {
         val entity = WorkoutExerciseEntity(
             id = exercise.id,
@@ -110,7 +109,7 @@ class WorkoutRepositoryImpl @Inject constructor(
         )
         workoutDao.insertWorkoutExercises(listOf(entity))
     }
-    
+
     override suspend fun updateWorkoutExercise(exercise: WorkoutExercise) {
         val entity = WorkoutExerciseEntity(
             id = exercise.id,
@@ -120,24 +119,67 @@ class WorkoutRepositoryImpl @Inject constructor(
         )
         workoutDao.updateWorkoutExercise(entity)
     }
-    
+
     override suspend fun getExerciseIdsFromLastWeek(): List<String> {
         val oneWeekAgo = Calendar.getInstance().apply {
             add(Calendar.DAY_OF_YEAR, -7)
         }.time
         return workoutDao.getExerciseIdsFromDate(oneWeekAgo)
     }
-    
-    override fun getAllWorkouts(): Flow<List<Workout>> {
-        return workoutDao.getAllWorkouts().map { workouts ->
-            workouts.map { workoutEntity ->
-                Workout(
-                    id = workoutEntity.id,
-                    date = workoutEntity.date,
-                    type = workoutEntity.type,
-                    status = workoutEntity.status
-                )
-            }
+
+    override suspend fun getAllCompletedWorkoutsWithExercises(): List<Workout> {
+        return workoutDao.getAllCompletedWorkouts().mapNotNull { entity ->
+            getWorkoutById(entity.id)
         }
     }
+
+    override suspend fun reassignWorkouts(oldGymId: Long, newGymId: Long) {
+        workoutDao.reassignWorkouts(oldGymId, newGymId)
+    }
+
+    override suspend fun getInProgressStrengthWorkout(gymId: Long): Workout? {
+        val entity = workoutDao.getInProgressStrengthWorkout(gymId) ?: return null
+        return getWorkoutById(entity.id)
+    }
+
+    override suspend fun getInProgressConditioningWorkout(gymId: Long): Workout? {
+        val entity = workoutDao.getInProgressConditioningWorkout(gymId) ?: return null
+        return getWorkoutById(entity.id)
+    }
+
+    override fun getCompletedWorkoutsByGym(gymId: Long): Flow<List<Workout>> {
+        return workoutDao.getCompletedWorkoutsByGym(gymId).map { workouts ->
+            workouts.map { it.toDomain(emptyList()) }
+        }
+    }
+
+    override fun getAllWorkouts(): Flow<List<Workout>> {
+        return workoutDao.getAllWorkouts().map { workouts ->
+            workouts.map { it.toDomain(emptyList()) }
+        }
+    }
+
+    private fun WorkoutEntity.toDomain(exercises: List<WorkoutExercise>): Workout = Workout(
+        id = id,
+        date = date,
+        type = type,
+        status = status,
+        gymId = gymId,
+        format = format,
+        durationMinutes = durationMinutes,
+        completedRounds = completedRounds,
+        exercises = exercises
+    )
+
+    private fun ExerciseEntity.toDomain(): Exercise = Exercise(
+        id = id,
+        name = name,
+        muscleGroups = muscleGroups,
+        equipment = equipment,
+        category = category,
+        exerciseCategory = exerciseCategory,
+        imageUrl = imageUrl,
+        instructions = instructions,
+        isUserCreated = isUserCreated
+    )
 }

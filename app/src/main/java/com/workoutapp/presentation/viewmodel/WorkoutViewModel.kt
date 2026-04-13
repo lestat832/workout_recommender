@@ -2,11 +2,18 @@ package com.workoutapp.presentation.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.workoutapp.domain.model.*
 import com.workoutapp.domain.repository.ExerciseRepository
 import com.workoutapp.domain.repository.WorkoutRepository
+import com.workoutapp.domain.usecase.DeleteWorkoutUseCase
 import com.workoutapp.domain.usecase.GenerateWorkoutUseCase
+import com.workoutapp.domain.usecase.ProfileComputerUseCase
+import com.workoutapp.data.sync.StravaSyncManager
+import com.workoutapp.domain.usecase.StrengthSetPrescriber
+import com.workoutapp.domain.usecase.toWorkoutPrescription
+import com.workoutapp.domain.repository.TrainingProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,54 +27,78 @@ import kotlin.random.Random
 @HiltViewModel
 class WorkoutViewModel @Inject constructor(
     application: Application,
+    savedStateHandle: SavedStateHandle,
     private val workoutRepository: WorkoutRepository,
     private val exerciseRepository: ExerciseRepository,
-    private val generateWorkoutUseCase: GenerateWorkoutUseCase
+    private val generateWorkoutUseCase: GenerateWorkoutUseCase,
+    private val profileComputerUseCase: ProfileComputerUseCase,
+    private val profileRepository: TrainingProfileRepository,
+    private val stravaSyncManager: StravaSyncManager,
+    private val deleteWorkoutUseCase: DeleteWorkoutUseCase
 ) : AndroidViewModel(application) {
-    
+
+    private val gymId: Long? = savedStateHandle["gymId"]
+
+    // Optional skip-button override. Null for the normal flow; populated when
+    // the user taps "Skip" on the NextWorkoutCard and nav passes ?type=PUSH/PULL.
+    private val typeOverride: WorkoutType? =
+        savedStateHandle.get<String>("type")
+            ?.takeIf { it.isNotBlank() }
+            ?.let { runCatching { WorkoutType.valueOf(it) }.getOrNull() }
+
     private val _uiState = MutableStateFlow(WorkoutUiState())
     val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
-    
+
     private var currentWorkout: Workout? = null
-    
+    private var workoutStartTime: Long = System.currentTimeMillis()
+
     init {
         startWorkout()
     }
-    
+
     private fun startWorkout() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-            
+
             try {
-                val exercises = generateWorkoutUseCase()
-                if (exercises.isEmpty()) {
+                // Check for an existing IN_PROGRESS strength workout at this gym
+                val existingWorkout = gymId?.let { workoutRepository.getInProgressStrengthWorkout(it) }
+                if (existingWorkout != null && existingWorkout.exercises.isNotEmpty()) {
+                    currentWorkout = existingWorkout
+                    workoutStartTime = existingWorkout.date.time
+                    val prescriptions = buildPrescriptions(existingWorkout.exercises)
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        exercises = existingWorkout.exercises,
+                        prescriptions = prescriptions
+                    )
+                    return@launch
+                }
+
+                val generated = generateWorkoutUseCase(gymId, typeOverride)
+                if (generated.exercises.isEmpty()) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = "No exercises available. Please select more exercises."
                     )
                     return@launch
                 }
-                
+
                 val workoutId = UUID.randomUUID().toString()
-                val lastWorkout = workoutRepository.getLastWorkout()
-                val workoutType = if (lastWorkout?.type == WorkoutType.PUSH) {
-                    WorkoutType.PULL
-                } else {
-                    WorkoutType.PUSH
-                }
-                
-                // Get date offset from shared preferences for testing
+                val workoutType = generated.type
+
                 val prefs = getApplication<Application>().getSharedPreferences("debug_prefs", android.content.Context.MODE_PRIVATE)
                 val dateOffset = prefs.getInt("date_offset", 0)
                 val calendar = Calendar.getInstance()
                 calendar.add(Calendar.DAY_OF_YEAR, dateOffset)
-                
+
                 val workout = Workout(
                     id = workoutId,
                     date = calendar.time,
                     type = workoutType,
                     status = WorkoutStatus.IN_PROGRESS,
-                    exercises = exercises.map { exercise ->
+                    gymId = gymId,
+                    exercises = generated.exercises.map { exercise ->
                         WorkoutExercise(
                             id = UUID.randomUUID().toString(),
                             workoutId = workoutId,
@@ -76,13 +107,16 @@ class WorkoutViewModel @Inject constructor(
                         )
                     }
                 )
-                
+
                 workoutRepository.createWorkout(workout)
                 currentWorkout = workout
-                
+
+                val prescriptions = buildPrescriptions(workout.exercises)
+
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    exercises = workout.exercises
+                    exercises = workout.exercises,
+                    prescriptions = prescriptions
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -246,6 +280,60 @@ class WorkoutViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(exercises = exercises)
     }
     
+    /**
+     * For each exercise in the freshly generated workout, try the profile-aware
+     * prescriber first (per-set weights based on loading pattern). Falls back to
+     * the legacy history-based prescriber for exercises without a profile.
+     */
+    private suspend fun buildPrescriptions(
+        exercises: List<WorkoutExercise>
+    ): Map<String, WorkoutPrescription> {
+        if (exercises.isEmpty()) return emptyMap()
+
+        // Load profiles for all exercises in this workout
+        val exerciseIds = exercises.map { it.exercise.id }
+        val profiles = profileRepository.getExerciseProfiles(exerciseIds)
+            .associateBy { it.exerciseId }
+
+        // Fallback: load history for exercises without profiles
+        val needsHistory = exercises.filter { profiles[it.exercise.id]?.strengthSessionCount ?: 0 < 2 }
+        val fullCandidates = if (needsHistory.isNotEmpty()) {
+            val completed = workoutRepository
+                .getWorkoutsByStatus(WorkoutStatus.COMPLETED)
+                .firstOrNull()
+                .orEmpty()
+            completed.take(HISTORY_LOOKBACK_WORKOUTS).mapNotNull {
+                workoutRepository.getWorkoutById(it.id)
+            }
+        } else emptyList()
+
+        return exercises.mapIndexed { index, workoutExercise ->
+            val profile = profiles[workoutExercise.exercise.id]
+
+            val prescription = if (profile != null && profile.strengthSessionCount >= 2) {
+                // Profile-aware: per-set prescriptions with loading pattern
+                StrengthSetPrescriber.prescribeFromProfile(
+                    positionInWorkout = index,
+                    profile = profile
+                )
+            } else {
+                // Fallback: legacy history-based
+                val targetId = workoutExercise.exercise.id
+                val history = fullCandidates
+                    .mapNotNull { w -> w.exercises.firstOrNull { it.exercise.id == targetId } }
+                    .take(2)
+                val legacy = StrengthSetPrescriber.prescribe(
+                    positionInWorkout = index,
+                    history = history
+                )
+                // Wrap legacy prescription into WorkoutPrescription
+                legacy.toWorkoutPrescription()
+            }
+
+            workoutExercise.id to prescription
+        }.toMap()
+    }
+
     fun getCurrentWorkoutType(): WorkoutType? {
         return currentWorkout?.type
     }
@@ -257,8 +345,7 @@ class WorkoutViewModel @Inject constructor(
     fun cancelWorkout() {
         viewModelScope.launch {
             currentWorkout?.let { workout ->
-                // Delete the workout entirely
-                workoutRepository.deleteWorkout(workout.id)
+                deleteWorkoutUseCase(workout.id)
                 _uiState.value = _uiState.value.copy(isCompleted = true)
             }
         }
@@ -291,14 +378,22 @@ class WorkoutViewModel @Inject constructor(
                 _uiState.value.exercises.forEach { exercise ->
                     workoutRepository.addExerciseToWorkout(workout.id, exercise)
                 }
-                
+
+                // Compute session duration from start time
+                val durationMin = ((System.currentTimeMillis() - workoutStartTime) / 60000).toInt()
+
                 // Update workout status
                 val completedWorkout = workout.copy(
                     status = WorkoutStatus.COMPLETED,
-                    exercises = _uiState.value.exercises
+                    exercises = _uiState.value.exercises,
+                    durationMinutes = durationMin
                 )
                 workoutRepository.updateWorkout(completedWorkout)
-                
+
+                // Update training profile
+                profileComputerUseCase.updateAfterWorkout(completedWorkout.id)
+                stravaSyncManager.queueWorkout(completedWorkout.id)
+
                 _uiState.value = _uiState.value.copy(isCompleted = true)
             }
         }
@@ -308,6 +403,12 @@ class WorkoutViewModel @Inject constructor(
 data class WorkoutUiState(
     val isLoading: Boolean = false,
     val exercises: List<WorkoutExercise> = emptyList(),
+    val prescriptions: Map<String, WorkoutPrescription> = emptyMap(),
     val error: String? = null,
     val isCompleted: Boolean = false
 )
+
+// Number of most-recent completed workouts to scan when building the
+// per-exercise history window. Over-fetch beyond the 2-session minimum so
+// sessions that didn't include a given exercise don't starve the lookup.
+private const val HISTORY_LOOKBACK_WORKOUTS = 20

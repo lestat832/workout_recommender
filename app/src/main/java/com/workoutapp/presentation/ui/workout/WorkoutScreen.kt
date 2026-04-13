@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
@@ -17,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -25,6 +27,8 @@ import coil.compose.AsyncImage
 import com.workoutapp.domain.model.Exercise
 import com.workoutapp.domain.model.Set
 import com.workoutapp.domain.model.WorkoutExercise
+import com.workoutapp.domain.model.SetType
+import com.workoutapp.domain.model.WorkoutPrescription
 import com.workoutapp.presentation.viewmodel.WorkoutViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,6 +57,14 @@ fun WorkoutScreen(
         topBar = {
             TopAppBar(
                 title = { Text("The Hunt") },
+                navigationIcon = {
+                    IconButton(onClick = { showCancelDialog = true }) {
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
                 actions = {
                     val isEnabled = uiState.exercises.any { exercise ->
                         exercise.sets.any { it.completed }
@@ -143,6 +155,7 @@ fun WorkoutScreen(
                     items(uiState.exercises.size) { index ->
                         ExerciseCard(
                             exercise = uiState.exercises[index],
+                            prescription = uiState.prescriptions[uiState.exercises[index].id],
                             onAddSet = { viewModel.addSet(uiState.exercises[index].id) },
                             onRemoveSet = { setIndex ->
                                 viewModel.removeSet(uiState.exercises[index].id, setIndex)
@@ -246,6 +259,7 @@ fun WorkoutScreen(
 @Composable
 fun ExerciseCard(
     exercise: WorkoutExercise,
+    prescription: WorkoutPrescription? = null,
     onAddSet: () -> Unit,
     onRemoveSet: (Int) -> Unit,
     onUpdateSet: (Int, Int, Float) -> Unit,
@@ -282,12 +296,48 @@ fun ExerciseCard(
                         text = exercise.exercise.name,
                         style = MaterialTheme.typography.titleLarge
                     )
-                    
+
                     Text(
                         text = "${exercise.exercise.muscleGroups.joinToString(", ") { it.name }} • ${exercise.exercise.equipment}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+
+                    // 10x-trainer prescription: per-set breakdown with type
+                    // badges (W=warmup, R=ramp, working sets unmarked) and
+                    // a rationale line explaining the coaching logic.
+                    prescription?.let { p ->
+                        Spacer(modifier = Modifier.height(4.dp))
+                        p.sets.forEach { setPrescription ->
+                            val prefix = when (setPrescription.setType) {
+                                SetType.WARMUP -> "W "
+                                SetType.RAMP -> "R "
+                                SetType.WORKING -> ""
+                            }
+                            val repRange = if (setPrescription.targetRepsMin == setPrescription.targetRepsMax) {
+                                "${setPrescription.targetRepsMin}"
+                            } else {
+                                "${setPrescription.targetRepsMin}-${setPrescription.targetRepsMax}"
+                            }
+                            val weightStr = setPrescription.recommendedWeight?.let { w ->
+                                if (w % 1f == 0f) " @ ${w.toInt()} lb" else " @ $w lb"
+                            } ?: ""
+                            Text(
+                                text = "$prefix$repRange reps$weightStr",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (setPrescription.setType == SetType.WORKING) FontWeight.Bold else FontWeight.Normal,
+                                color = if (setPrescription.setType == SetType.WORKING)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Text(
+                            text = p.rationale,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 
                 Row {

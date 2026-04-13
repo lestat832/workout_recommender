@@ -2,10 +2,12 @@ package com.workoutapp.di
 
 import com.workoutapp.data.repository.ExerciseRepositoryImpl
 import com.workoutapp.data.repository.GymRepositoryImpl
+import com.workoutapp.data.repository.TrainingProfileRepositoryImpl
 import com.workoutapp.data.repository.UserPreferencesRepositoryImpl
 import com.workoutapp.data.repository.WorkoutRepositoryImpl
 import com.workoutapp.domain.repository.ExerciseRepository
 import com.workoutapp.domain.repository.GymRepository
+import com.workoutapp.domain.repository.TrainingProfileRepository
 import com.workoutapp.domain.repository.UserPreferencesRepository
 import com.workoutapp.domain.repository.WorkoutRepository
 import dagger.Binds
@@ -41,4 +43,10 @@ abstract class RepositoryModule {
     abstract fun bindGymRepository(
         gymRepositoryImpl: GymRepositoryImpl
     ): GymRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindTrainingProfileRepository(
+        trainingProfileRepositoryImpl: TrainingProfileRepositoryImpl
+    ): TrainingProfileRepository
 }

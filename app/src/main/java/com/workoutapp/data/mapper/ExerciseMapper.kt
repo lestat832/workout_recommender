@@ -3,6 +3,7 @@ package com.workoutapp.data.mapper
 import com.workoutapp.data.database.entities.ExerciseEntity
 import com.workoutapp.data.remote.ExerciseDbJson
 import com.workoutapp.domain.model.Exercise
+import com.workoutapp.domain.model.ExerciseCategory
 import com.workoutapp.domain.model.MuscleGroup
 import com.workoutapp.domain.model.WorkoutType
 
@@ -17,12 +18,15 @@ object ExerciseMapper {
      * Converts ExerciseDB JSON to domain Exercise model
      */
     fun ExerciseDbJson.toDomain(): Exercise {
+        val muscles = mapMuscleGroups(this.primaryMuscles, this.secondaryMuscles)
+        val legacyCategory = mapWorkoutType(this.force, this.primaryMuscles)
         return Exercise(
             id = this.id,
             name = this.name,
-            muscleGroups = mapMuscleGroups(this.primaryMuscles, this.secondaryMuscles),
+            muscleGroups = muscles,
             equipment = mapEquipment(this.equipment),
-            category = mapWorkoutType(this.force, this.primaryMuscles),
+            category = legacyCategory,
+            exerciseCategory = ExerciseCategory.deriveFrom(muscles, legacyCategory, this.name),
             imageUrl = mapImageUrl(this.images),
             instructions = this.instructions
         )
@@ -32,12 +36,15 @@ object ExerciseMapper {
      * Converts ExerciseDB JSON to database entity
      */
     fun ExerciseDbJson.toEntity(): ExerciseEntity {
+        val muscles = mapMuscleGroups(this.primaryMuscles, this.secondaryMuscles)
+        val legacyCategory = mapWorkoutType(this.force, this.primaryMuscles)
         return ExerciseEntity(
             id = this.id,
             name = this.name,
-            muscleGroups = mapMuscleGroups(this.primaryMuscles, this.secondaryMuscles),
+            muscleGroups = muscles,
             equipment = mapEquipment(this.equipment),
-            category = mapWorkoutType(this.force, this.primaryMuscles),
+            category = legacyCategory,
+            exerciseCategory = ExerciseCategory.deriveFrom(muscles, legacyCategory, this.name),
             imageUrl = mapImageUrl(this.images),
             instructions = this.instructions,
             isUserCreated = false,
@@ -91,6 +98,11 @@ object ExerciseMapper {
             "e-z curl bar" -> "EZ Bar"
             "foam roll" -> "Foam Roller"
             "medicine ball" -> "Medicine Ball"
+            "trx", "suspension trainer" -> "Suspension Trainer"
+            "ab wheel", "ab roller" -> "Ab Wheel"
+            "rower", "rowing machine" -> "Indoor Rower"
+            "stationary bike", "exercise bike", "assault bike" -> "Indoor Bike"
+            "jump rope", "skipping rope" -> "Jump Rope"
             "other" -> "Other"
             else -> equipment.replaceFirstChar { it.uppercase() }
         }

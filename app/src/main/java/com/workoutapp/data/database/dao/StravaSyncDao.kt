@@ -111,4 +111,7 @@ interface StravaSyncDao {
      */
     @Query("SELECT stravaActivityId FROM strava_sync_queue WHERE workoutId = :workoutId AND status = 'COMPLETED' LIMIT 1")
     suspend fun getStravaActivityId(workoutId: String): Long?
+
+    @Query("DELETE FROM strava_sync_queue WHERE workoutId = :workoutId")
+    suspend fun deleteByWorkoutId(workoutId: String)
 }

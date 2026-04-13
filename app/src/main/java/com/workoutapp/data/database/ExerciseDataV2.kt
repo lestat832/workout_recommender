@@ -385,7 +385,7 @@ object ExerciseDataV2 {
         ),
         ExerciseEntity(
             id = "27",
-            name = "Tricep Dips",
+            name = "Dips",
             muscleGroups = listOf(MuscleGroup.TRICEP),
             equipment = "Bodyweight",
             category = WorkoutType.PUSH,
@@ -579,6 +579,78 @@ object ExerciseDataV2 {
                 "Curl the weight up while keeping upper arms on the pad.",
                 "Lower slowly to full extension."
             )
-        )
+        ),
+
+        // ── Hevy history exercises (no CDN images) ──────────────────────
+
+        // CHEST
+        ExerciseEntity(id = "v2_41", name = "Fly (Dumbbell)", muscleGroups = listOf(MuscleGroup.CHEST), equipment = "Dumbbell", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_42", name = "Incline Bench Press (Barbell)", muscleGroups = listOf(MuscleGroup.CHEST), equipment = "Barbell", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_43", name = "Decline Bench Press (Barbell)", muscleGroups = listOf(MuscleGroup.CHEST), equipment = "Barbell", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_44", name = "Decline Bench Press (Machine)", muscleGroups = listOf(MuscleGroup.CHEST), equipment = "Machine", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_45", name = "Incline Chest Fly (Dumbbell)", muscleGroups = listOf(MuscleGroup.CHEST), equipment = "Dumbbell", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_46", name = "Incline Chest Press (Machine)", muscleGroups = listOf(MuscleGroup.CHEST), equipment = "Machine", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_47", name = "Chest Press (Machine)", muscleGroups = listOf(MuscleGroup.CHEST), equipment = "Machine", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_48", name = "Iso-Lateral Chest Press (Machine)", muscleGroups = listOf(MuscleGroup.CHEST), equipment = "Machine", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_49", name = "Bench / Shrug", muscleGroups = listOf(MuscleGroup.CHEST, MuscleGroup.SHOULDER), equipment = "Barbell", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_50", name = "Incline Chest / Shrug Combo", muscleGroups = listOf(MuscleGroup.CHEST, MuscleGroup.SHOULDER), equipment = "Barbell", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_51", name = "Incline Bench Press (Smith Machine)", muscleGroups = listOf(MuscleGroup.CHEST), equipment = "Machine", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_52", name = "Chest Dip (Assisted)", muscleGroups = listOf(MuscleGroup.CHEST), equipment = "Machine", category = WorkoutType.PUSH),
+
+        // SHOULDER
+        ExerciseEntity(id = "v2_53", name = "Shrug (Barbell)", muscleGroups = listOf(MuscleGroup.SHOULDER), equipment = "Barbell", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_54", name = "Shrug (Dumbbell)", muscleGroups = listOf(MuscleGroup.SHOULDER), equipment = "Dumbbell", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_55", name = "Upright Row (Barbell)", muscleGroups = listOf(MuscleGroup.SHOULDER), equipment = "Barbell", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_56", name = "Upright Row (Dumbbell)", muscleGroups = listOf(MuscleGroup.SHOULDER), equipment = "Dumbbell", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_57", name = "Reverse Fly (Dumbbell)", muscleGroups = listOf(MuscleGroup.SHOULDER), equipment = "Dumbbell", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_58", name = "Shoulder Press (Machine Plates)", muscleGroups = listOf(MuscleGroup.SHOULDER), equipment = "Machine", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_59", name = "Seated Shoulder Press (Machine)", muscleGroups = listOf(MuscleGroup.SHOULDER), equipment = "Machine", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_60", name = "Overhead Press (Smith Machine)", muscleGroups = listOf(MuscleGroup.SHOULDER), equipment = "Machine", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_61", name = "Lateral Raise (Machine)", muscleGroups = listOf(MuscleGroup.SHOULDER), equipment = "Machine", category = WorkoutType.PUSH),
+
+        // TRICEP
+        ExerciseEntity(id = "v2_62", name = "Skullcrusher", muscleGroups = listOf(MuscleGroup.TRICEP), equipment = "Barbell", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_63", name = "Triceps Rope Pushdown", muscleGroups = listOf(MuscleGroup.TRICEP), equipment = "Cable", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_64", name = "Triceps V", muscleGroups = listOf(MuscleGroup.TRICEP), equipment = "Cable", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_65", name = "Tricep Kickback", muscleGroups = listOf(MuscleGroup.TRICEP), equipment = "Dumbbell", category = WorkoutType.PUSH),
+
+        // BACK
+        ExerciseEntity(id = "v2_66", name = "Back Raises", muscleGroups = listOf(MuscleGroup.BACK), equipment = "Bodyweight", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_67", name = "Standing Back Row", muscleGroups = listOf(MuscleGroup.BACK), equipment = "Cable", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_68", name = "Iso-Lateral High Row (Machine)", muscleGroups = listOf(MuscleGroup.BACK), equipment = "Machine", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_69", name = "Iso-Lateral Row (Machine)", muscleGroups = listOf(MuscleGroup.BACK), equipment = "Machine", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_70", name = "Lat Pulldown - Close Grip (Cable)", muscleGroups = listOf(MuscleGroup.BACK), equipment = "Cable", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_71", name = "Lat Pulldown (Machine)", muscleGroups = listOf(MuscleGroup.BACK), equipment = "Machine", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_72", name = "Seated Row (Machine)", muscleGroups = listOf(MuscleGroup.BACK), equipment = "Machine", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_73", name = "Pullover (Dumbbell)", muscleGroups = listOf(MuscleGroup.BACK, MuscleGroup.CHEST), equipment = "Dumbbell", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_74", name = "Pull Up (Assisted)", muscleGroups = listOf(MuscleGroup.BACK), equipment = "Machine", category = WorkoutType.PULL),
+
+        // BICEP
+        ExerciseEntity(id = "v2_75", name = "Bicep Curl (Machine)", muscleGroups = listOf(MuscleGroup.BICEP), equipment = "Machine", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_76", name = "Cross Body Hammer Curl", muscleGroups = listOf(MuscleGroup.BICEP), equipment = "Dumbbell", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_77", name = "Seated Incline Curl (Dumbbell)", muscleGroups = listOf(MuscleGroup.BICEP), equipment = "Dumbbell", category = WorkoutType.PULL),
+
+        // LEGS
+        ExerciseEntity(id = "v2_78", name = "Calf Raise", muscleGroups = listOf(MuscleGroup.LEGS), equipment = "Machine", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_79", name = "Good Morning (Barbell)", muscleGroups = listOf(MuscleGroup.BACK, MuscleGroup.LEGS), equipment = "Barbell", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_80", name = "Hip Thrust (Barbell)", muscleGroups = listOf(MuscleGroup.LEGS), equipment = "Barbell", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_81", name = "Deadlift (Dumbbell)", muscleGroups = listOf(MuscleGroup.BACK, MuscleGroup.LEGS), equipment = "Dumbbell", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_82", name = "Single Leg RDLs", muscleGroups = listOf(MuscleGroup.LEGS), equipment = "Dumbbell", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_83", name = "Inner / Outer Thigh", muscleGroups = listOf(MuscleGroup.LEGS), equipment = "Machine", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_84", name = "Dumbbell Step Up", muscleGroups = listOf(MuscleGroup.LEGS), equipment = "Dumbbell", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_85", name = "Thruster (Barbell)", muscleGroups = listOf(MuscleGroup.LEGS, MuscleGroup.SHOULDER), equipment = "Barbell", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_86", name = "Thruster (Dumbell)", muscleGroups = listOf(MuscleGroup.LEGS, MuscleGroup.SHOULDER), equipment = "Dumbbell", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_87", name = "Thruster (Kettlebell)", muscleGroups = listOf(MuscleGroup.LEGS, MuscleGroup.SHOULDER), equipment = "Kettlebell", category = WorkoutType.PUSH),
+
+        // COMPOUND / COMBOS
+        ExerciseEntity(id = "v2_88", name = "Deadlift Clean Combo", muscleGroups = listOf(MuscleGroup.BACK, MuscleGroup.LEGS), equipment = "Barbell", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_89", name = "Dumbbell Clean", muscleGroups = listOf(MuscleGroup.BACK, MuscleGroup.LEGS), equipment = "Dumbbell", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_90", name = "Clean", muscleGroups = listOf(MuscleGroup.BACK, MuscleGroup.LEGS), equipment = "Barbell", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_91", name = "Pushup Row", muscleGroups = listOf(MuscleGroup.CHEST, MuscleGroup.BACK), equipment = "Dumbbell", category = WorkoutType.PUSH),
+        ExerciseEntity(id = "v2_92", name = "KB Complex (Row Clean Squat Press)", muscleGroups = listOf(MuscleGroup.BACK, MuscleGroup.LEGS), equipment = "Kettlebell", category = WorkoutType.PULL),
+        ExerciseEntity(id = "v2_93", name = "Walking Lunge / Deadlift / Farmers Carry / Squat", muscleGroups = listOf(MuscleGroup.LEGS), equipment = "Barbell", category = WorkoutType.PULL),
+
+        // CORE
+        ExerciseEntity(id = "v2_94", name = "Hanging Leg Raise", muscleGroups = listOf(MuscleGroup.CORE), equipment = "Bodyweight", category = WorkoutType.PULL)
     )
 }

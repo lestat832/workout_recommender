@@ -5,6 +5,7 @@ import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
 import com.workoutapp.data.database.converters.MuscleGroupListConverter
 import com.workoutapp.data.database.converters.StringListConverter
+import com.workoutapp.domain.model.ExerciseCategory
 import com.workoutapp.domain.model.MuscleGroup
 import com.workoutapp.domain.model.WorkoutType
 
@@ -17,6 +18,7 @@ data class ExerciseEntity(
     val muscleGroups: List<MuscleGroup>,
     val equipment: String,
     val category: WorkoutType,
+    val exerciseCategory: ExerciseCategory = ExerciseCategory.STRENGTH_PUSH,
     val imageUrl: String? = null,
     val instructions: List<String> = emptyList(),
     val isUserCreated: Boolean = false,

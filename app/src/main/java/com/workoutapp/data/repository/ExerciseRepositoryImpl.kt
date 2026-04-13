@@ -8,6 +8,7 @@ import com.workoutapp.data.mapper.ExerciseMapper
 import com.workoutapp.data.mapper.ExerciseMapper.toEntity
 import com.workoutapp.data.remote.ExerciseDbService
 import com.workoutapp.domain.model.Exercise
+import com.workoutapp.domain.model.ExerciseCategory
 import com.workoutapp.domain.model.WorkoutType
 import com.workoutapp.domain.repository.ExerciseRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -34,6 +35,7 @@ class ExerciseRepositoryImpl @Inject constructor(
                     muscleGroups = entity.muscleGroups,
                     equipment = entity.equipment,
                     category = entity.category,
+                    exerciseCategory = entity.exerciseCategory,
                     imageUrl = entity.imageUrl,
                     instructions = entity.instructions,
                     isUserCreated = entity.isUserCreated
@@ -42,35 +44,47 @@ class ExerciseRepositoryImpl @Inject constructor(
         }
     }
     
+    override suspend fun getExerciseById(id: String): Exercise? {
+        return exerciseDao.getExerciseById(id)?.toDomain()
+    }
+
     override suspend fun getExercisesByType(workoutType: WorkoutType): List<Exercise> {
-        return exerciseDao.getExercisesByType(workoutType).map { entity ->
-            Exercise(
-                id = entity.id,
-                name = entity.name,
-                muscleGroups = entity.muscleGroups,
-                equipment = entity.equipment,
-                category = entity.category,
-                imageUrl = entity.imageUrl,
-                instructions = entity.instructions,
-                isUserCreated = entity.isUserCreated
-            )
-        }
+        return exerciseDao.getExercisesByType(workoutType).map { it.toDomain() }
     }
-    
+
+    override suspend fun backfillExerciseCategories() {
+        // Order matters: push/pull first (base), then override with legs and core.
+        exerciseDao.backfillPushCategory()
+        exerciseDao.backfillPullCategory()
+        exerciseDao.backfillLegsCategory()
+        exerciseDao.backfillCoreCategory()
+    }
+
+    override suspend fun reclassifyCardioByName() {
+        exerciseDao.reclassifyCardioByName()
+    }
+
     override suspend fun getUserActiveExercisesByType(workoutType: WorkoutType): List<Exercise> {
-        return exerciseDao.getUserActiveExercisesByType(workoutType).map { entity ->
-            Exercise(
-                id = entity.id,
-                name = entity.name,
-                muscleGroups = entity.muscleGroups,
-                equipment = entity.equipment,
-                category = entity.category,
-                imageUrl = entity.imageUrl,
-                instructions = entity.instructions,
-                isUserCreated = entity.isUserCreated
-            )
-        }
+        return exerciseDao.getUserActiveExercisesByType(workoutType).map { it.toDomain() }
     }
+
+    override suspend fun getUserActiveExercisesByCategories(
+        categories: List<ExerciseCategory>
+    ): List<Exercise> {
+        return exerciseDao.getUserActiveExercisesByCategories(categories).map { it.toDomain() }
+    }
+
+    private fun ExerciseEntity.toDomain(): Exercise = Exercise(
+        id = id,
+        name = name,
+        muscleGroups = muscleGroups,
+        equipment = equipment,
+        category = category,
+        exerciseCategory = exerciseCategory,
+        imageUrl = imageUrl,
+        instructions = instructions,
+        isUserCreated = isUserCreated
+    )
     
     override suspend fun setUserExercises(exerciseIds: List<String>) {
         exerciseIds.forEach { exerciseId ->
@@ -102,6 +116,7 @@ class ExerciseRepositoryImpl @Inject constructor(
                 muscleGroups = exercise.muscleGroups,
                 equipment = exercise.equipment,
                 category = exercise.category,
+                exerciseCategory = exercise.exerciseCategory,
                 imageUrl = exercise.imageUrl,
                 instructions = exercise.instructions,
                 isUserCreated = exercise.isUserCreated,
@@ -110,14 +125,16 @@ class ExerciseRepositoryImpl @Inject constructor(
         }
         exerciseDao.insertExercises(entities)
     }
-    
+
     override suspend fun createCustomExercise(exercise: Exercise) {
+        val derivedCategory = ExerciseCategory.deriveFrom(exercise.muscleGroups, exercise.category)
         val entity = ExerciseEntity(
             id = exercise.id,
             name = exercise.name,
             muscleGroups = exercise.muscleGroups,
             equipment = exercise.equipment,
             category = exercise.category,
+            exerciseCategory = derivedCategory,
             imageUrl = exercise.imageUrl,
             instructions = exercise.instructions,
             isUserCreated = true,
@@ -125,20 +142,13 @@ class ExerciseRepositoryImpl @Inject constructor(
         )
         exerciseDao.insertExercise(entity)
     }
-    
+
     override suspend fun getCustomExerciseByName(name: String): Exercise? {
-        return exerciseDao.getCustomExerciseByName(name)?.let { entity ->
-            Exercise(
-                id = entity.id,
-                name = entity.name,
-                muscleGroups = entity.muscleGroups,
-                equipment = entity.equipment,
-                category = entity.category,
-                imageUrl = entity.imageUrl,
-                instructions = entity.instructions,
-                isUserCreated = entity.isUserCreated
-            )
-        }
+        return exerciseDao.getCustomExerciseByName(name)?.toDomain()
+    }
+
+    override suspend fun getExerciseByName(name: String): Exercise? {
+        return exerciseDao.getExerciseByName(name)?.toDomain()
     }
     
     override fun getCustomExercises(): Flow<List<Exercise>> {
@@ -150,6 +160,7 @@ class ExerciseRepositoryImpl @Inject constructor(
                     muscleGroups = entity.muscleGroups,
                     equipment = entity.equipment,
                     category = entity.category,
+                    exerciseCategory = entity.exerciseCategory,
                     imageUrl = entity.imageUrl,
                     instructions = entity.instructions,
                     isUserCreated = entity.isUserCreated

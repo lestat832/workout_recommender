@@ -38,10 +38,10 @@ class GenerateWorkoutUseCase @Inject constructor(
         // Override applies to this session only; next completion recomputes.
         val workoutType = typeOverride ?: resolveType(gymId)
 
-        // Recent exercise IDs to avoid (7-day cooldown, completed workouts only
-        // per Phase 0).
-        val recentExerciseIds = workoutRepository.getExerciseIdsFromLastWeek()
-        Log.d(TAG, "Cooldown: excluded ${recentExerciseIds.size} exercises from last 7 days")
+        // Freshness-weighted selection: track when each exercise was last performed
+        // instead of hard 7-day exclusion.
+        val lastPerformedDates = workoutRepository.getExerciseLastPerformedDates()
+        Log.d(TAG, "Freshness: tracking ${lastPerformedDates.size} exercise last-performed dates")
 
         // Filter by ExerciseCategory (Phase 0 taxonomy) instead of the legacy
         // Exercise.category: WorkoutType field. PULL pulls from STRENGTH_PULL
@@ -54,7 +54,6 @@ class GenerateWorkoutUseCase @Inject constructor(
                     EquipmentType.canPerformExercise(exercise.equipment, g.equipmentList)
                 } ?: true
             }
-            .filterNot { it.id in recentExerciseIds }
 
         val exercisesByMuscle = availableExercises
             .groupBy { it.muscleGroups.firstOrNull() ?: MuscleGroup.CHEST }
@@ -70,6 +69,20 @@ class GenerateWorkoutUseCase @Inject constructor(
         val exerciseProfiles = profileRepository.getExerciseProfiles(allCandidateIds)
             .associateBy { it.exerciseId }
 
+        // Bench press priority: resolve by name at runtime (ID varies between data sources)
+        val benchPress = availableExercises.find {
+            it.name.contains("Bench Press", ignoreCase = true) && it.equipment.contains("Barbell", ignoreCase = true)
+        }
+        val benchPressDaysSince = benchPress?.let {
+            ExerciseFreshness.daysSinceLastPerformed(it.id, lastPerformedDates)
+        }
+        val benchPressOverdue = benchPress != null && (
+            (benchPressDaysSince != null && benchPressDaysSince >= 14) ||
+            (benchPressDaysSince == null && lastPerformedDates.isNotEmpty())
+        )
+
+        var newExerciseUsed = false
+
         val selected = targetMuscleGroups.mapNotNull { muscleGroup ->
             val candidates = exercisesByMuscle[muscleGroup] ?: return@mapNotNull null
             val filtered = when (muscleGroup) {
@@ -78,15 +91,48 @@ class GenerateWorkoutUseCase @Inject constructor(
                     .ifEmpty { candidates }
                 else -> candidates
             }
+
+            // Bench press priority: force into chest slot if overdue
+            if (muscleGroup == MuscleGroup.CHEST && workoutType == WorkoutType.PUSH && benchPressOverdue && benchPress != null) {
+                val bench = filtered.find { it.id == benchPress.id }
+                if (bench != null) {
+                    Log.d(TAG, "Force-selected bench press for CHEST (${benchPressDaysSince ?: "never"}d since last)")
+                    return@mapNotNull bench
+                }
+            }
+
             // Deprioritize plateau'd exercises: prefer non-plateau'd, fall back to all
             val nonPlateau = filtered.filter { exercise ->
                 val profile = exerciseProfiles[exercise.id]
                 profile == null || !profile.plateauFlag
             }
             val pool = nonPlateau.ifEmpty { filtered }
-            pool.randomOrNull()?.also { picked ->
-                val profile = exerciseProfiles[picked.id]
-                Log.d(TAG, "Selected ${picked.name} for $muscleGroup (pool=${pool.size}, plateau=${profile?.plateauFlag ?: false})")
+
+            // Cap new exercises: max 1 per workout, only in non-anchor position
+            val position = targetMuscleGroups.indexOf(muscleGroup)
+            val poolForSelection = if (position == 0 || newExerciseUsed) {
+                pool.filter { it.id in lastPerformedDates }.ifEmpty { pool }
+            } else {
+                pool
+            }
+
+            // Weighted random selection based on freshness
+            val picked = ExerciseFreshness.weightedRandom(
+                candidates = poolForSelection,
+                weightFn = { exercise -> ExerciseFreshness.weight(exercise.id, lastPerformedDates) }
+            )
+
+            // Fallback: if weighted selection returned null, try full pool
+            val result = picked ?: run {
+                Log.w(TAG, "Freshness fallback for $muscleGroup — weighted pool exhausted")
+                pool.randomOrNull()
+            }
+
+            result?.also {
+                if (it.id !in lastPerformedDates) newExerciseUsed = true
+                val days = ExerciseFreshness.daysSinceLastPerformed(it.id, lastPerformedDates)
+                val profile = exerciseProfiles[it.id]
+                Log.d(TAG, "Selected ${it.name} for $muscleGroup (pool=${poolForSelection.size}, days=${days ?: "new"}, plateau=${profile?.plateauFlag ?: false})")
             }
         }.take(3)
 

@@ -45,12 +45,13 @@ days since last done → selection weight
 3-4 days:   0.30 (short window, deprioritize)
 5-7 days:   1.00 (optimal rotation — full priority)
 8-14 days:  1.10 (slightly overdue, mild boost)
-14+ days:   1.00 (stale but not bonus — might be avoided for reason)
+14+ days:   FORCE-SELECT (most overdue exercise wins the slot)
 never done: 1.00 (eligible, no boost — new exercises introduced deliberately)
 ```
 
 Key design decisions:
 - 5-7 days is the peak because that's the optimal rotation for intermediates
+- **14+ days triggers a force-select**: if any candidate exercise in a muscle group hasn't been done in 14+ days, the most overdue one automatically wins that slot. this guarantees no exercise goes more than ~2 weeks without appearing (e.g., bench press at least once every other week). if two exercises are both 14+ days overdue, pick the one with the longest gap.
 - "Never done" gets no bonus — new exercises are introduced deliberately, not randomly
 - Cap at 1 new exercise per workout, placed in position 2 (accessory slot, 3x10-12) — never position 0 (anchor compound)
 - "New" = exercise has never appeared in any completed workout for this user (no entry in last-performed dates query)
@@ -126,6 +127,7 @@ New: if weighted pool for a muscle group produces no viable candidate (all weigh
 - Generate workout on Day 6: Exercise A should appear at full priority
 - Generate workout on Day 10: Exercise A should appear with mild boost
 - Verify new exercises (never performed) don't get bonus placement
+- Generate workout with bench press 15+ days old: bench press MUST appear (force-select)
 - Check logcat for freshness weights: `adb logcat -s FortisLupus`
 
 ### Conditioning freshness

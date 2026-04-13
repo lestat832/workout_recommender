@@ -4,9 +4,15 @@
 
 **Goal:** Replace random workout generation with trainer-informed selection: conditioning format alternation, exercise freshness decay, bench press priority, equipment-aware weight progression, and empty pool safety net.
 
-**Architecture:** Changes are isolated to 4 files in the domain/data layer. A shared `ExerciseFreshness` utility computes selection weights from last-performed dates. Each generator (strength + conditioning) uses it independently. The prescriber gains equipment awareness via an additional parameter.
+**Architecture:** A shared `ExerciseFreshness` utility computes selection weights from last-performed dates. Each generator (strength + conditioning) uses it independently. The prescriber gains equipment awareness via an additional parameter. Bench press is identified by runtime name lookup, not hardcoded ID.
 
 **Tech Stack:** Kotlin, Room DAO queries, existing MVVM architecture
+
+**Non-Goals:** Periodization (Phase 2), cross-gym fatigue (Phase 3), RPE/preference tracking (Phase 4). No schema changes or migrations. No INIT_VERSION bump — this change is pure logic, no seeding.
+
+**Freshness Scope:** Global across all gyms and formats. If you did barbell rows at LMU yesterday, they're deprioritized everywhere. This matches how a trainer thinks — your muscles don't know which gym you're at.
+
+**Rollback:** All changes are in workout generation logic (pure functions). No database schema changes, no migration, no persistent state. Reverting the code restores previous behavior with zero data impact.
 
 ---
 
@@ -15,12 +21,19 @@
 | File | Action | Responsibility |
 |------|--------|---------------|
 | `data/database/dao/WorkoutDao.kt` | Modify | New query: exercise last-performed dates |
-| `data/repository/WorkoutRepositoryImpl.kt` | Modify | Expose last-performed dates, format-aware conditioning lookup |
+| `data/repository/WorkoutRepositoryImpl.kt` | Modify | Expose last-performed dates |
 | `domain/repository/WorkoutRepository.kt` | Modify | Interface additions |
 | `domain/usecase/ExerciseFreshness.kt` | Create | Shared freshness weight calculator + weighted random selection |
 | `domain/usecase/GenerateWorkoutUseCase.kt` | Modify | Freshness-weighted selection, bench press priority, empty pool fallback |
 | `domain/usecase/GenerateConditioningWorkoutUseCase.kt` | Modify | Format alternation, freshness-weighted bucket picks |
 | `domain/usecase/StrengthSetPrescriber.kt` | Modify | Equipment-aware progression delta |
+| `presentation/viewmodel/HomeViewModel.kt` | Modify | Update predictNextFormat caller (now suspend + gymId) |
+| `presentation/viewmodel/WorkoutViewModel.kt` | Modify | Pass equipment + progressionRate to prescriber |
+
+**Risks:**
+- Bench press name may vary between ExerciseDataV2 ("Barbell Bench Press") and Hevy imports ("Bench Press (Barbell)"). Mitigated by trying both names at runtime.
+- Freshness query on large history could be slow. Mitigated by the GROUP BY + MAX aggregate — single pass, one row per exercise.
+- Converting predictNextFormat to suspend changes its contract. Mitigated by default parameter (backwards-compatible) and updating the single caller in HomeViewModel.
 
 ---
 
@@ -300,10 +313,17 @@ Replace the `mapNotNull` exercise selection block (lines 73-91) with:
 
 ```kotlin
 // Bench press priority: force-select if not done in 14+ days (push day, chest slot only)
-val benchPressId = "Barbell_Bench_Press_-_Medium_Grip" // Free Exercise DB slug ID
-val benchPressDaysSince = ExerciseFreshness.daysSinceLastPerformed(benchPressId, lastPerformedDates)
-val benchPressOverdue = benchPressDaysSince != null && benchPressDaysSince >= 14
-    || (benchPressDaysSince == null && lastPerformedDates.isNotEmpty()) // has history but never benched
+// Resolve bench press by name at runtime — ID varies between ExerciseDataV2 and Hevy imports
+val benchPress = availableExercises.find {
+    it.name.contains("Bench Press", ignoreCase = true) && it.equipment.contains("Barbell", ignoreCase = true)
+}
+val benchPressDaysSince = benchPress?.let {
+    ExerciseFreshness.daysSinceLastPerformed(it.id, lastPerformedDates)
+}
+val benchPressOverdue = benchPress != null && (
+    (benchPressDaysSince != null && benchPressDaysSince >= 14) ||
+    (benchPressDaysSince == null && lastPerformedDates.isNotEmpty()) // has history but never benched
+)
 
 // Track if a new exercise (never performed) has been selected this workout
 var newExerciseUsed = false
@@ -318,8 +338,8 @@ val selected = targetMuscleGroups.mapNotNull { muscleGroup ->
     }
 
     // Bench press priority: force into chest slot if overdue
-    if (muscleGroup == MuscleGroup.CHEST && workoutType == WorkoutType.PUSH && benchPressOverdue) {
-        val bench = filtered.find { it.id == benchPressId }
+    if (muscleGroup == MuscleGroup.CHEST && workoutType == WorkoutType.PUSH && benchPressOverdue && benchPress != null) {
+        val bench = filtered.find { it.id == benchPress.id }
         if (bench != null) {
             Log.d(TAG, "Force-selected bench press for CHEST (${benchPressDaysSince ?: "never"}d since last)")
             return@mapNotNull bench
@@ -367,27 +387,16 @@ Add import at top:
 import com.workoutapp.domain.usecase.ExerciseFreshness
 ```
 
-- [ ] **Step 3: Verify bench press ID exists**
-
-The bench press ID in the Free Exercise DB is `"Barbell_Bench_Press_-_Medium_Grip"`. Verify this exists in ExerciseDataV2 or the exercises table. If the Hevy seeder created it under a different name, check: `exerciseRepository.getExerciseByName("Bench Press (Barbell)")` returns a different ID. Use whichever ID is in the database.
-
-Search the codebase:
-```bash
-grep -r "Bench_Press\|Bench Press" app/src/main/java/com/workoutapp/data/database/ExerciseDataV2.kt | head -5
-```
-
-Update the `benchPressId` constant if needed.
-
-- [ ] **Step 4: Remove the old getExerciseIdsFromLastWeek call**
+- [ ] **Step 3: Remove the old getExerciseIdsFromLastWeek call**
 
 The old `recentExerciseIds` variable and the `getExerciseIdsFromLastWeek()` call are no longer used in this file. Remove them. (The method still exists on the repository for other potential callers.)
 
-- [ ] **Step 5: Compile and verify**
+- [ ] **Step 4: Compile and verify**
 
 Run: `./gradlew compileDebugKotlin`
 Expected: BUILD SUCCESSFUL
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add app/src/main/java/com/workoutapp/domain/usecase/GenerateWorkoutUseCase.kt
@@ -602,7 +611,7 @@ git commit -m "feat: Equipment-aware weight progression (DB rep progression for 
 
 ---
 
-### Task 7: Build, verify, and final commit
+### Task 7: Build and verify
 
 - [ ] **Step 1: Full build**
 
@@ -622,17 +631,4 @@ Expected output should include:
 - "Selected [name] for [muscle] (pool=N, days=M, plateau=false)"
 - "Freshness fallback for [muscle]" (only if pool exhaustion occurs)
 
-- [ ] **Step 3: Bump INIT_VERSION**
-
-In `InitializeExercisesUseCase.kt`, bump `INIT_VERSION` from 3 to 4 so the new seeding runs on existing installs:
-
-```kotlin
-private const val INIT_VERSION = 4
-```
-
-- [ ] **Step 4: Final commit**
-
-```bash
-git add -A
-git commit -m "feat: Smart workout recommendations Phase 1 — format alternation, freshness, progression"
-```
+No INIT_VERSION bump needed — this change is pure generation logic with no seeding changes.

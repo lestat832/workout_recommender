@@ -324,7 +324,9 @@ class WorkoutViewModel @Inject constructor(
                     .take(2)
                 val legacy = StrengthSetPrescriber.prescribe(
                     positionInWorkout = index,
-                    history = history
+                    history = history,
+                    equipment = workoutExercise.exercise.equipment,
+                    progressionRate = profiles[workoutExercise.exercise.id]?.progressionRateLbPerMonth
                 )
                 // Wrap legacy prescription into WorkoutPrescription
                 legacy.toWorkoutPrescription()

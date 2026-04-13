@@ -50,7 +50,9 @@ object StrengthSetPrescriber {
      */
     fun prescribe(
         positionInWorkout: Int,
-        history: List<WorkoutExercise>
+        history: List<WorkoutExercise>,
+        equipment: String = "",
+        progressionRate: Float? = null
     ): StrengthPrescription {
         val template = templateForPosition(positionInWorkout)
 
@@ -102,19 +104,30 @@ object StrengthSetPrescriber {
             .all { it.reps >= template.repsMax }
 
         Log.d(TAG, "Prescribe pos=$positionInWorkout: last weight=${mostRecentWorkingWeight.toInt()}lb, cleared=$mostRecentClearedTop")
+        Log.d(TAG, "Prescribe pos=$positionInWorkout: equipment=$equipment, rate=${progressionRate ?: "unknown"}, dbSlow=${isDumbbellSlowProgressor(equipment, progressionRate)}")
 
         return if (
             mostRecentClearedTop &&
             previousClearedTop &&
             mostRecentWorkingWeight == previousWorkingWeight
         ) {
-            StrengthPrescription(
-                targetSets = template.sets,
-                targetRepsMin = template.repsMin,
-                targetRepsMax = template.repsMax,
-                recommendedWeight = mostRecentWorkingWeight + PROGRESSION_DELTA_LB,
-                rationale = "+${PROGRESSION_DELTA_LB.toInt()} lb — cleared ${template.repsMax} reps last 2 sessions"
-            )
+            if (isDumbbellSlowProgressor(equipment, progressionRate)) {
+                StrengthPrescription(
+                    targetSets = template.sets,
+                    targetRepsMin = template.repsMin,
+                    targetRepsMax = template.repsMax + 1,
+                    recommendedWeight = mostRecentWorkingWeight,
+                    rationale = "hold ${mostRecentWorkingWeight.toInt()} lb — aim for ${template.repsMax + 1} reps to earn +${PROGRESSION_DELTA_LB.toInt()} lb"
+                )
+            } else {
+                StrengthPrescription(
+                    targetSets = template.sets,
+                    targetRepsMin = template.repsMin,
+                    targetRepsMax = template.repsMax,
+                    recommendedWeight = mostRecentWorkingWeight + PROGRESSION_DELTA_LB,
+                    rationale = "+${PROGRESSION_DELTA_LB.toInt()} lb — cleared ${template.repsMax} reps last 2 sessions"
+                )
+            }
         } else {
             StrengthPrescription(
                 targetSets = template.sets,
@@ -257,6 +270,11 @@ object StrengthSetPrescriber {
             rationale = rationale,
             loadingPattern = profile.loadingPattern
         )
+    }
+
+    private fun isDumbbellSlowProgressor(equipment: String, progressionRate: Float?): Boolean {
+        if (!equipment.contains("Dumbbell", ignoreCase = true)) return false
+        return progressionRate != null && progressionRate < 5f
     }
 
     private fun roundToNearest5(weight: Float): Float {

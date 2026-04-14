@@ -30,6 +30,7 @@ import com.workoutapp.domain.model.WorkoutExercise
 import com.workoutapp.domain.model.SetType
 import com.workoutapp.domain.model.WorkoutPrescription
 import com.workoutapp.presentation.ui.components.FatigueWarningCaption
+import com.workoutapp.presentation.ui.components.RirChipRow
 import com.workoutapp.presentation.viewmodel.WorkoutViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -181,6 +182,9 @@ fun WorkoutScreen(
                                 exerciseToRemove = uiState.exercises[index].id
                                 exerciseNameToRemove = uiState.exercises[index].exercise.name
                                 showRemoveExerciseDialog = true
+                            },
+                            onRirSelected = { rir ->
+                                viewModel.setRir(uiState.exercises[index].id, rir)
                             }
                         )
                     }
@@ -275,7 +279,8 @@ fun ExerciseCard(
     onUpdateSet: (Int, Int, Float) -> Unit,
     onToggleSetCompletion: (Int) -> Unit,
     onShuffle: () -> Unit,
-    onRemoveExercise: () -> Unit
+    onRemoveExercise: () -> Unit,
+    onRirSelected: (Int?) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth()
@@ -419,6 +424,13 @@ fun ExerciseCard(
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(4.dp))
                 Text("Add Set")
+            }
+            val allSetsComplete = exercise.sets.isNotEmpty() && exercise.sets.all { it.completed }
+            if (allSetsComplete) {
+                RirChipRow(
+                    selectedRir = exercise.rir,
+                    onSelect = onRirSelected
+                )
             }
         }
     }

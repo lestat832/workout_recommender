@@ -881,19 +881,32 @@ fun ExerciseDetailRow(workoutExercise: com.workoutapp.domain.model.WorkoutExerci
                 fontWeight = FontWeight.Medium
             )
             if (workoutExercise.prescription != null) {
+                // Conditioning branch — unchanged. RIR is never captured here.
                 Text(
                     text = workoutExercise.prescription,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium
                 )
-            } else if (exerciseTotal > 0) {
-                Text(
-                    text = "${String.format("%,.0f", exerciseTotal)} lbs",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium
-                )
+            } else {
+                // Strength branch — append RIR badge when logged.
+                val volumeText = if (exerciseTotal > 0) {
+                    "${String.format("%,.0f", exerciseTotal)} lbs"
+                } else {
+                    ""
+                }
+                val rirText = workoutExercise.rir?.let { "RIR $it" } ?: ""
+                val trailing = listOf(volumeText, rirText)
+                    .filter { it.isNotEmpty() }
+                    .joinToString(" \u00b7 ")
+                if (trailing.isNotEmpty()) {
+                    Text(
+                        text = trailing,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
 

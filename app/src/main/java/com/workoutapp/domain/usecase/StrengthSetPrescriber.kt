@@ -52,13 +52,15 @@ object StrengthSetPrescriber {
         positionInWorkout: Int,
         history: List<WorkoutExercise>,
         equipment: String = "",
-        progressionRate: Float? = null
+        progressionRate: Float? = null,
+        weekInBlock: Int = 1,
+        isDeloadWeek: Boolean = false
     ): StrengthPrescription {
         val template = templateForPosition(positionInWorkout)
 
         if (history.size < 2) {
             Log.d(TAG, "Prescribe pos=$positionInWorkout: history fallback, sessions=${history.size}")
-            return StrengthPrescription(
+            val base = StrengthPrescription(
                 targetSets = template.sets,
                 targetRepsMin = template.repsMin,
                 targetRepsMax = template.repsMax,
@@ -69,6 +71,7 @@ object StrengthSetPrescriber {
                     "returning — match last session and build history"
                 }
             )
+            return applyBlockProgression(base, positionInWorkout, weekInBlock, isDeloadWeek)
         }
 
         // Reduce each session to its completed working sets (weight > 0,
@@ -79,13 +82,14 @@ object StrengthSetPrescriber {
         }
 
         if (lastTwo.any { it.isEmpty() }) {
-            return StrengthPrescription(
+            val base = StrengthPrescription(
                 targetSets = template.sets,
                 targetRepsMin = template.repsMin,
                 targetRepsMax = template.repsMax,
                 recommendedWeight = null,
                 rationale = "incomplete history — hit target reps to unlock progression"
             )
+            return applyBlockProgression(base, positionInWorkout, weekInBlock, isDeloadWeek)
         }
 
         val mostRecentWorkingWeight = lastTwo[0].maxOf { it.weight }
@@ -106,7 +110,7 @@ object StrengthSetPrescriber {
         Log.d(TAG, "Prescribe pos=$positionInWorkout: last weight=${mostRecentWorkingWeight.toInt()}lb, cleared=$mostRecentClearedTop")
         Log.d(TAG, "Prescribe pos=$positionInWorkout: equipment=$equipment, rate=${progressionRate ?: "unknown"}, dbSlow=${isDumbbellSlowProgressor(equipment, progressionRate)}")
 
-        return if (
+        val basePrescription = if (
             mostRecentClearedTop &&
             previousClearedTop &&
             mostRecentWorkingWeight == previousWorkingWeight
@@ -137,6 +141,8 @@ object StrengthSetPrescriber {
                 rationale = "repeat weight — aim for ${template.repsMax} reps to unlock progression"
             )
         }
+
+        return applyBlockProgression(basePrescription, positionInWorkout, weekInBlock, isDeloadWeek)
     }
 
     /**
@@ -270,6 +276,45 @@ object StrengthSetPrescriber {
             rationale = rationale,
             loadingPattern = profile.loadingPattern
         )
+    }
+
+    /**
+     * Applies block-weekly progression on top of base prescription.
+     * Only affects positions 0 (anchor) and 1 (hypertrophy). Accessory (position 2+)
+     * uses base Phase 1 logic unchanged.
+     */
+    private fun applyBlockProgression(
+        base: StrengthPrescription,
+        positionInWorkout: Int,
+        weekInBlock: Int,
+        isDeloadWeek: Boolean
+    ): StrengthPrescription {
+        if (positionInWorkout >= 2) return base
+
+        if (isDeloadWeek) {
+            val deloadWeight = base.recommendedWeight?.let {
+                roundToNearest5(it * BlockPeriodization.DELOAD_WEIGHT_PCT)
+            }
+            val deloadSets = (base.targetSets - 1).coerceAtLeast(2)
+            return base.copy(
+                targetSets = deloadSets,
+                recommendedWeight = deloadWeight,
+                rationale = "Deload · ${deloadWeight?.toInt() ?: "bodyweight"} lb, ${deloadSets} sets — recovery week"
+            )
+        }
+
+        return when (weekInBlock) {
+            1 -> base
+            2 -> {
+                if (base.targetRepsMax <= 5) base
+                else base.copy(
+                    targetRepsMax = base.targetRepsMax + 1,
+                    rationale = "Week 2 · aim for ${base.targetRepsMax + 1} reps (same weight) to earn +5 lb next week"
+                )
+            }
+            3 -> base
+            else -> base
+        }
     }
 
     private fun isDumbbellSlowProgressor(equipment: String, progressionRate: Float?): Boolean {

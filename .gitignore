@@ -87,6 +87,16 @@ lint/tmp/
 # Android Profiling
 *.hprof
 
+# Markdown — ignore all except repo essentials and Claude project instructions
+*.md
+!/README.md
+!/CHANGELOG.md
+!/.claude/CLAUDE.md
+!/.claude/references/*.md
+
+# MCP local config
+.mcp.json
+
 # OS-specific files
 .DS_Store
 .DS_Store?

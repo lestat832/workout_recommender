@@ -34,7 +34,8 @@ class WorkoutViewModel @Inject constructor(
     private val profileComputerUseCase: ProfileComputerUseCase,
     private val profileRepository: TrainingProfileRepository,
     private val stravaSyncManager: StravaSyncManager,
-    private val deleteWorkoutUseCase: DeleteWorkoutUseCase
+    private val deleteWorkoutUseCase: DeleteWorkoutUseCase,
+    private val blockStateRepository: com.workoutapp.domain.repository.BlockStateRepository
 ) : AndroidViewModel(application) {
 
     private val gymId: Long? = savedStateHandle["gymId"]
@@ -50,6 +51,7 @@ class WorkoutViewModel @Inject constructor(
     val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
 
     private var currentWorkout: Workout? = null
+    private var blockState: com.workoutapp.domain.usecase.BlockPeriodization.State? = null
     private var workoutStartTime: Long = System.currentTimeMillis()
 
     init {
@@ -76,6 +78,7 @@ class WorkoutViewModel @Inject constructor(
                 }
 
                 val generated = generateWorkoutUseCase(gymId, typeOverride)
+                blockState = generated.blockState
                 if (generated.exercises.isEmpty()) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -326,7 +329,9 @@ class WorkoutViewModel @Inject constructor(
                     positionInWorkout = index,
                     history = history,
                     equipment = workoutExercise.exercise.equipment,
-                    progressionRate = profiles[workoutExercise.exercise.id]?.progressionRateLbPerMonth
+                    progressionRate = profiles[workoutExercise.exercise.id]?.progressionRateLbPerMonth,
+                    weekInBlock = blockState?.weekInBlock ?: 1,
+                    isDeloadWeek = blockState?.isDeloadWeek ?: false
                 )
                 // Wrap legacy prescription into WorkoutPrescription
                 legacy.toWorkoutPrescription()
@@ -395,6 +400,14 @@ class WorkoutViewModel @Inject constructor(
                 // Update training profile
                 profileComputerUseCase.updateAfterWorkout(completedWorkout.id)
                 stravaSyncManager.queueWorkout(completedWorkout.id)
+
+                // Advance block if we just completed the deload week (week 4)
+                // EXTENDED_ABSENCE does NOT advance because it was already reset to week 1
+                if (blockState?.weekInBlock == 4 &&
+                    blockState?.deloadReason != com.workoutapp.domain.usecase.BlockPeriodization.DeloadReason.EXTENDED_ABSENCE
+                ) {
+                    gymId?.let { gId -> blockStateRepository.advanceBlock(gId) }
+                }
 
                 _uiState.value = _uiState.value.copy(isCompleted = true)
             }

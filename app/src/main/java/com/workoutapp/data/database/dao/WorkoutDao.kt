@@ -29,6 +29,22 @@ interface WorkoutDao {
     
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertWorkoutExercises(exercises: List<WorkoutExerciseEntity>)
+
+    /**
+     * Replace the full set of exercises for a workout atomically. Needed because
+     * shuffling/removing exercises re-mints WorkoutExercise ids, so plain
+     * insertWorkoutExercises (REPLACE by PK) leaves stale rows for replaced
+     * exercises. Delete-then-insert inside a transaction guarantees the DB
+     * reflects exactly the current in-memory set.
+     */
+    @Transaction
+    suspend fun replaceWorkoutExercises(
+        workoutId: String,
+        entities: List<WorkoutExerciseEntity>
+    ) {
+        deleteWorkoutExercises(workoutId)
+        if (entities.isNotEmpty()) insertWorkoutExercises(entities)
+    }
     
     @Update
     suspend fun updateWorkout(workout: WorkoutEntity)

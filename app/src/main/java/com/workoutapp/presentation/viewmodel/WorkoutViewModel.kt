@@ -123,9 +123,7 @@ class WorkoutViewModel @Inject constructor(
                 // killed before the user interacts. Without this, createWorkout
                 // writes only the parent row and restore fails its exercises
                 // non-empty check, forcing a fresh generation.
-                workout.exercises.forEach { ex ->
-                    workoutRepository.addExerciseToWorkout(workout.id, ex)
-                }
+                workoutRepository.replaceExercisesForWorkout(workout.id, workout.exercises)
                 currentWorkout = workout
 
                 val prescriptions = buildPrescriptions(workout.exercises)
@@ -169,11 +167,14 @@ class WorkoutViewModel @Inject constructor(
             }
         }
         _uiState.value = _uiState.value.copy(exercises = exercises)
+        autosaveProgress()
     }
-    
+
     fun removeSet(exerciseId: String, setIndex: Int) {
+        var mutated = false
         val exercises = _uiState.value.exercises.map { exercise ->
             if (exercise.id == exerciseId && exercise.sets.size > 1) {
+                mutated = true
                 exercise.copy(
                     sets = exercise.sets.filterIndexed { index, _ -> index != setIndex }
                 )
@@ -182,8 +183,9 @@ class WorkoutViewModel @Inject constructor(
             }
         }
         _uiState.value = _uiState.value.copy(exercises = exercises)
+        if (mutated) autosaveProgress()
     }
-    
+
     fun updateSet(exerciseId: String, setIndex: Int, reps: Int, weight: Float) {
         val exercises = _uiState.value.exercises.map { exercise ->
             if (exercise.id == exerciseId) {
@@ -220,6 +222,7 @@ class WorkoutViewModel @Inject constructor(
             }
         }
         _uiState.value = _uiState.value.copy(exercises = exercises)
+        autosaveProgress()
     }
     
     fun shuffleExercise(exerciseId: String) {
@@ -286,6 +289,7 @@ class WorkoutViewModel @Inject constructor(
                 exercises = newWorkoutExercises,
                 prescriptions = prescriptions
             )
+            autosaveProgress()
         }
     }
 
@@ -303,11 +307,13 @@ class WorkoutViewModel @Inject constructor(
             }
         }
         _uiState.value = _uiState.value.copy(exercises = exercises)
+        autosaveProgress()
     }
-    
+
     fun removeExercise(exerciseId: String) {
         val exercises = _uiState.value.exercises.filter { it.id != exerciseId }
         _uiState.value = _uiState.value.copy(exercises = exercises)
+        autosaveProgress()
     }
     
     fun addExerciseToWorkout(exercise: Exercise) {
@@ -322,8 +328,9 @@ class WorkoutViewModel @Inject constructor(
         
         val exercises = _uiState.value.exercises + newWorkoutExercise
         _uiState.value = _uiState.value.copy(exercises = exercises)
+        autosaveProgress()
     }
-    
+
     /**
      * For each exercise in the freshly generated workout, try the profile-aware
      * prescriber first (per-set weights based on loading pattern). Falls back to
@@ -404,18 +411,16 @@ class WorkoutViewModel @Inject constructor(
     fun saveWorkoutProgress() {
         viewModelScope.launch {
             currentWorkout?.let { workout ->
-                // Save all workout exercises with current progress
-                _uiState.value.exercises.forEach { exercise ->
-                    workoutRepository.addExerciseToWorkout(workout.id, exercise)
-                }
-                
-                // Update workout status to incomplete
+                val exercisesToPersist = _uiState.value.exercises
+                // Transactional replace prevents stale rows from shuffled-out exercises.
+                workoutRepository.replaceExercisesForWorkout(workout.id, exercisesToPersist)
+
                 val incompleteWorkout = workout.copy(
                     status = WorkoutStatus.INCOMPLETE,
-                    exercises = _uiState.value.exercises
+                    exercises = exercisesToPersist
                 )
                 workoutRepository.updateWorkout(incompleteWorkout)
-                
+
                 _uiState.value = _uiState.value.copy(isCompleted = true)
             }
         }
@@ -434,9 +439,8 @@ class WorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             val workout = currentWorkout ?: return@launch
             val exercisesToPersist = _uiState.value.exercises
-            exercisesToPersist.forEach { exercise ->
-                workoutRepository.addExerciseToWorkout(workout.id, exercise)
-            }
+            // Transactional replace prevents stale rows from shuffled-out exercises.
+            workoutRepository.replaceExercisesForWorkout(workout.id, exercisesToPersist)
             workoutRepository.updateWorkout(workout.copy(exercises = exercisesToPersist))
         }
     }
@@ -473,10 +477,9 @@ class WorkoutViewModel @Inject constructor(
     fun completeWorkout() {
         viewModelScope.launch {
             currentWorkout?.let { workout ->
-                // Save all workout exercises
-                _uiState.value.exercises.forEach { exercise ->
-                    workoutRepository.addExerciseToWorkout(workout.id, exercise)
-                }
+                val exercisesToPersist = _uiState.value.exercises
+                // Transactional replace prevents stale rows from shuffled-out exercises.
+                workoutRepository.replaceExercisesForWorkout(workout.id, exercisesToPersist)
 
                 // Compute session duration from start time
                 val durationMin = ((System.currentTimeMillis() - workoutStartTime) / 60000).toInt()
@@ -484,7 +487,7 @@ class WorkoutViewModel @Inject constructor(
                 // Update workout status
                 val completedWorkout = workout.copy(
                     status = WorkoutStatus.COMPLETED,
-                    exercises = _uiState.value.exercises,
+                    exercises = exercisesToPersist,
                     durationMinutes = durationMin
                 )
                 workoutRepository.updateWorkout(completedWorkout)

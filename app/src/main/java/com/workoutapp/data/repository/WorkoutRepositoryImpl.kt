@@ -112,6 +112,22 @@ class WorkoutRepositoryImpl @Inject constructor(
         workoutDao.insertWorkoutExercises(listOf(entity))
     }
 
+    override suspend fun replaceExercisesForWorkout(
+        workoutId: String,
+        exercises: List<WorkoutExercise>
+    ) {
+        val entities = exercises.map { exercise ->
+            WorkoutExerciseEntity(
+                id = exercise.id,
+                workoutId = workoutId,
+                exerciseId = exercise.exercise.id,
+                sets = exercise.sets,
+                prescription = exercise.prescription
+            )
+        }
+        workoutDao.replaceWorkoutExercises(workoutId, entities)
+    }
+
     override suspend fun updateWorkoutExercise(exercise: WorkoutExercise) {
         val entity = WorkoutExerciseEntity(
             id = exercise.id,

@@ -84,6 +84,27 @@ object FatigueAwareness {
         return "$muscleLabels trained ${minHours}h ago — recovery may be incomplete"
     }
 
+    /**
+     * Returns a warning if today's plan is HARD and the last
+     * INTENSITY_STACK_THRESHOLD completed sessions were also HARD. Else null.
+     *
+     * Caller passes `recentCompleted` pre-filtered to the last INTENSITY_LOOKBACK_DAYS
+     * (from whatever "now" they're using) and sorted date desc.
+     */
+    fun checkIntensityStacking(
+        recentCompleted: List<CompletedWorkoutSummary>,
+        plannedIntensity: Intensity
+    ): String? {
+        if (plannedIntensity != Intensity.HARD) return null
+        if (recentCompleted.size < INTENSITY_STACK_THRESHOLD) return null
+
+        val lastN = recentCompleted.take(INTENSITY_STACK_THRESHOLD)
+        val allHard = lastN.all { classify(it.format, it.durationMinutes) == Intensity.HARD }
+        if (!allHard) return null
+
+        return "Last $INTENSITY_STACK_THRESHOLD sessions were hard — consider easing up today"
+    }
+
     private fun MuscleGroup.toFriendlyName(): String = when (this) {
         MuscleGroup.CHEST -> "Chest"
         MuscleGroup.SHOULDER -> "Shoulders"

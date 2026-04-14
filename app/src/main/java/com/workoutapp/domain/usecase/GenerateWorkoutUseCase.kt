@@ -22,7 +22,8 @@ class GenerateWorkoutUseCase @Inject constructor(
     private val exerciseRepository: ExerciseRepository,
     private val workoutRepository: WorkoutRepository,
     private val gymRepository: GymRepository,
-    private val profileRepository: TrainingProfileRepository
+    private val profileRepository: TrainingProfileRepository,
+    private val blockStateRepository: com.workoutapp.domain.repository.BlockStateRepository
 ) {
     suspend operator fun invoke(
         gymId: Long? = null,
@@ -136,7 +137,24 @@ class GenerateWorkoutUseCase @Inject constructor(
             }
         }.take(3)
 
-        return GeneratedWorkout(type = workoutType, exercises = selected)
+        // Block periodization (LMU strength only — gymId required)
+        val blockState = if (gymId != null) {
+            val (blockStart, blockNumber) = blockStateRepository.getState(gymId)
+            val lastWorkout = workoutRepository.getLastCompletedWorkoutByGym(gymId)
+            val plateauedCount = selected.count { ex ->
+                exerciseProfiles[ex.id]?.plateauFlag == true
+            }
+            BlockPeriodization.computeState(
+                blockStartDate = blockStart,
+                blockNumber = blockNumber,
+                lastWorkoutDate = lastWorkout?.date,
+                plateauedExerciseCount = plateauedCount
+            ).also { state ->
+                Log.d(TAG, "Block ${state.blockNumber} ${state.phaseLabel} (plateauCount=$plateauedCount)")
+            }
+        } else null
+
+        return GeneratedWorkout(type = workoutType, exercises = selected, blockState = blockState)
     }
 
     /**

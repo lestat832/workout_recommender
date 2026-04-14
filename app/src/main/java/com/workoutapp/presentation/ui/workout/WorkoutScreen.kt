@@ -50,6 +50,7 @@ fun WorkoutScreen(
     var exerciseToRemove by remember { mutableStateOf<String?>(null) }
     var exerciseNameToRemove by remember { mutableStateOf("") }
     var showOverflowMenu by remember { mutableStateOf(false) }
+    var showShuffleAllDialog by remember { mutableStateOf(false) }
     
     LaunchedEffect(uiState.isCompleted) {
         if (uiState.isCompleted) {
@@ -115,6 +116,13 @@ fun WorkoutScreen(
                             expanded = showOverflowMenu,
                             onDismissRequest = { showOverflowMenu = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("Shuffle All") },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    showShuffleAllDialog = true
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("Cancel Workout") },
                                 onClick = {
@@ -242,6 +250,30 @@ fun WorkoutScreen(
         )
     }
     
+    // Shuffle All Dialog
+    if (showShuffleAllDialog) {
+        AlertDialog(
+            onDismissRequest = { showShuffleAllDialog = false },
+            title = { Text("Shuffle All Exercises?") },
+            text = { Text("This regenerates the whole workout. Any logged sets will be cleared.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showShuffleAllDialog = false
+                        viewModel.shuffleAllExercises()
+                    }
+                ) {
+                    Text("Shuffle All")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showShuffleAllDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     // Remove Exercise Dialog
     if (showRemoveExerciseDialog) {
         AlertDialog(

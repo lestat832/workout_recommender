@@ -261,6 +261,34 @@ class WorkoutViewModel @Inject constructor(
         }
     }
     
+    /**
+     * Regenerate all exercises in the current workout. Reuses GenerateWorkoutUseCase
+     * so every constraint (push/pull side, equipment, category, cooldown) matches
+     * what the initial generator would produce. Keeps the same workout id/type/date
+     * so in-progress restore, history, and block-periodization state are unaffected.
+     */
+    fun shuffleAllExercises() {
+        viewModelScope.launch {
+            val workout = currentWorkout ?: return@launch
+            val generated = generateWorkoutUseCase(gymId = workout.gymId, typeOverride = workout.type)
+            if (generated.exercises.isEmpty()) return@launch
+
+            val newWorkoutExercises = generated.exercises.map { exercise ->
+                WorkoutExercise(
+                    id = UUID.randomUUID().toString(),
+                    workoutId = workout.id,
+                    exercise = exercise,
+                    sets = listOf(com.workoutapp.domain.model.Set(reps = 0, weight = 0f, completed = false))
+                )
+            }
+            val prescriptions = buildPrescriptions(newWorkoutExercises)
+            _uiState.value = _uiState.value.copy(
+                exercises = newWorkoutExercises,
+                prescriptions = prescriptions
+            )
+        }
+    }
+
     private fun replaceExercise(oldExerciseId: String, newExercise: Exercise) {
         val exercises = _uiState.value.exercises.map { workoutExercise ->
             if (workoutExercise.id == oldExerciseId) {

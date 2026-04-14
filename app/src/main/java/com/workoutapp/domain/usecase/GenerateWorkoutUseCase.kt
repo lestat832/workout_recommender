@@ -138,8 +138,10 @@ class GenerateWorkoutUseCase @Inject constructor(
         }.take(3)
 
         // Block periodization (LMU strength only — gymId required)
+        // Null state = no workouts completed yet; use synthetic (today, 1) without persisting
         val blockState = if (gymId != null) {
-            val (blockStart, blockNumber) = blockStateRepository.getState(gymId)
+            val persisted = blockStateRepository.getState(gymId)
+            val (blockStart, blockNumber) = persisted ?: (Date() to 1)
             val lastWorkout = workoutRepository.getLastCompletedWorkoutByGym(gymId)
             val plateauedCount = selected.count { ex ->
                 exerciseProfiles[ex.id]?.plateauFlag == true

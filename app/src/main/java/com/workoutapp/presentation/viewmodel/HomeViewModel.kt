@@ -150,7 +150,9 @@ class HomeViewModel @Inject constructor(
         _nextWorkoutFormat.value = null
         viewModelScope.launch {
             _nextWorkoutType.value = generateWorkoutUseCase.predictNextType(gymId)
-            val (blockStart, blockNumber) = blockStateRepository.getState(gymId)
+            // Null state = no completed workouts yet; show synthetic Week 1 without persisting
+            val persisted = blockStateRepository.getState(gymId)
+            val (blockStart, blockNumber) = persisted ?: (java.util.Date() to 1)
             val lastWorkout = workoutRepository.getLastCompletedWorkoutByGym(gymId)
             val state = com.workoutapp.domain.usecase.BlockPeriodization.computeState(
                 blockStartDate = blockStart,

@@ -151,7 +151,9 @@ object StrengthSetPrescriber {
      */
     fun prescribeFromProfile(
         positionInWorkout: Int,
-        profile: ExerciseProfile
+        profile: ExerciseProfile,
+        weekInBlock: Int = 1,
+        isDeloadWeek: Boolean = false
     ): WorkoutPrescription {
         Log.d(TAG, "Profile prescribe: ${profile.exerciseId} pos=$positionInWorkout, working=${profile.currentWorkingWeight?.toInt()}lb, pattern=${profile.loadingPattern}, plateau=${profile.plateauFlag}")
         val template = templateForPosition(positionInWorkout)
@@ -174,13 +176,14 @@ object StrengthSetPrescriber {
                     note = if (i == workingSets - 1) "clear $repsMax all sets → bump to ${repsMax + 3} next cycle" else null
                 ))
             }
-            return WorkoutPrescription(
+            val bodyweightBase = WorkoutPrescription(
                 sets = sets,
                 rationale = if (profile.bodyweightOnly) "bodyweight — progress by adding reps"
                     else "first time — find your working weight",
                 loadingPattern = LoadingPattern.FLAT,
                 bodyweightOnly = profile.bodyweightOnly
             )
+            return applyBlockProgressionToWorkoutPrescription(bodyweightBase, positionInWorkout, weekInBlock, isDeloadWeek)
         }
 
         val rationale: String
@@ -271,11 +274,12 @@ object StrengthSetPrescriber {
             }
         }
 
-        return WorkoutPrescription(
+        val baseWorkout = WorkoutPrescription(
             sets = sets,
             rationale = rationale,
             loadingPattern = profile.loadingPattern
         )
+        return applyBlockProgressionToWorkoutPrescription(baseWorkout, positionInWorkout, weekInBlock, isDeloadWeek)
     }
 
     /**
@@ -320,6 +324,61 @@ object StrengthSetPrescriber {
     private fun isDumbbellSlowProgressor(equipment: String, progressionRate: Float?): Boolean {
         if (!equipment.contains("Dumbbell", ignoreCase = true)) return false
         return progressionRate != null && progressionRate < 5f
+    }
+
+    /**
+     * Applies block-weekly progression to the profile-aware WorkoutPrescription.
+     * Only affects positions 0 (anchor) and 1 (hypertrophy).
+     *
+     * Deload: drops the last working set (min 2 working sets retained) and
+     * reduces all recommended weights (working + warmup + ramp) by 20%.
+     * Week 2: bumps targetRepsMax by 1 on working sets (skip if max <= 5).
+     */
+    private fun applyBlockProgressionToWorkoutPrescription(
+        base: WorkoutPrescription,
+        positionInWorkout: Int,
+        weekInBlock: Int,
+        isDeloadWeek: Boolean
+    ): WorkoutPrescription {
+        if (positionInWorkout >= 2) return base
+
+        if (isDeloadWeek) {
+            val workingCount = base.sets.count { it.setType == SetType.WORKING }
+            val keepWorking = (workingCount - 1).coerceAtLeast(2)
+            var seen = 0
+            val trimmed = base.sets.filter { set ->
+                if (set.setType != SetType.WORKING) true
+                else {
+                    seen++
+                    seen <= keepWorking
+                }
+            }
+            val deloadSets = trimmed.map { set ->
+                set.copy(
+                    recommendedWeight = set.recommendedWeight?.let { roundToNearest5(it * BlockPeriodization.DELOAD_WEIGHT_PCT) },
+                    note = null
+                )
+            }
+            return base.copy(
+                sets = deloadSets,
+                rationale = "Deload · 80% weight, ${keepWorking} working sets — recovery week"
+            )
+        }
+
+        return when (weekInBlock) {
+            2 -> {
+                val bumpedSets = base.sets.map { set ->
+                    if (set.setType == SetType.WORKING && set.targetRepsMax > 5) {
+                        set.copy(targetRepsMax = set.targetRepsMax + 1)
+                    } else set
+                }
+                base.copy(
+                    sets = bumpedSets,
+                    rationale = "Week 2 · chase +1 rep at same weight to earn +5 lb next week"
+                )
+            }
+            else -> base
+        }
     }
 
     private fun roundToNearest5(weight: Float): Float {

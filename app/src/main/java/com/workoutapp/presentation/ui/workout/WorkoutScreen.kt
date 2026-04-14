@@ -15,6 +15,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.ContentScale
@@ -48,11 +51,26 @@ fun WorkoutScreen(
     var exerciseToRemove by remember { mutableStateOf<String?>(null) }
     var exerciseNameToRemove by remember { mutableStateOf("") }
     var showOverflowMenu by remember { mutableStateOf(false) }
+    var showShuffleAllDialog by remember { mutableStateOf(false) }
     
     LaunchedEffect(uiState.isCompleted) {
         if (uiState.isCompleted) {
             onWorkoutComplete()
         }
+    }
+
+    // Autosave on pause so backgrounding/app-switch doesn't lose the workout.
+    // Writes are idempotent (Room REPLACE) and preserve IN_PROGRESS status for
+    // the restore path at WorkoutViewModel.startWorkout().
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE) {
+                viewModel.autosaveProgress()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     
     Scaffold(
@@ -99,6 +117,13 @@ fun WorkoutScreen(
                             expanded = showOverflowMenu,
                             onDismissRequest = { showOverflowMenu = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("Shuffle All") },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    showShuffleAllDialog = true
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("Cancel Workout") },
                                 onClick = {
@@ -229,6 +254,30 @@ fun WorkoutScreen(
         )
     }
     
+    // Shuffle All Dialog
+    if (showShuffleAllDialog) {
+        AlertDialog(
+            onDismissRequest = { showShuffleAllDialog = false },
+            title = { Text("Shuffle All Exercises?") },
+            text = { Text("This regenerates the whole workout. Any logged sets will be cleared.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showShuffleAllDialog = false
+                        viewModel.shuffleAllExercises()
+                    }
+                ) {
+                    Text("Shuffle All")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showShuffleAllDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     // Remove Exercise Dialog
     if (showRemoveExerciseDialog) {
         AlertDialog(

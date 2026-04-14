@@ -68,6 +68,7 @@ class InitializeExercisesUseCase @Inject constructor(
         private const val KEY_LMU_BENCH_20260412_SEEDED = "lmu_bench_20260412_seeded"
         private const val KEY_HOME_GYM_EMOM_20260413_SEEDED = "home_gym_emom_20260413_seeded"
         private const val KEY_HOME_GYM_AMRAP_20260414_SEEDED = "home_gym_amrap_20260414_seeded"
+        private const val KEY_LMU_PULL_20260414_SEEDED = "lmu_pull_20260414_seeded"
 
         // Ids added after the initial Home Gym catalog seed. Existing installs
         // need a one-shot insert + activation for these; fresh installs pick
@@ -254,6 +255,10 @@ class InitializeExercisesUseCase @Inject constructor(
 
             safeRun(KEY_HOME_GYM_AMRAP_20260414_SEEDED) {
                 seedHomeGymAmrap20260414()
+            }
+
+            safeRun(KEY_LMU_PULL_20260414_SEEDED) {
+                seedLmuPull20260414()
             }
 
             Result.success(null)
@@ -528,6 +533,84 @@ class InitializeExercisesUseCase @Inject constructor(
             )
             workoutRepository.addExerciseToWorkout(workoutId, we)
         }
+
+        profileComputerUseCase.recomputeFullProfile()
+    }
+
+    /**
+     * Apr 14 2026 LMU pull session recovered from memory after the app lost
+     * the in-progress workout when backgrounded (root cause fixed on this
+     * branch via autosave + initial-persist). Marc logs real sessions into
+     * the seed as durable history; this appends one more entry.
+     *
+     * Weights are logged per the literal values Marc stated: DB exercises
+     * use per-hand weight (matches Hevy convention for bilateral DB lifts
+     * and his mental model); the plate-loaded machine (Iso-Lateral High
+     * Row) uses total plate weight.
+     */
+    private suspend fun seedLmuPull20260414() {
+        val lmuGym = gymRepository.getAllGyms().firstOrNull { it.name == "LMU Gym" } ?: return
+
+        // Hevy name lookups (Hevy seeder stores under Hevy names, not mapped app names).
+        val squatCurl = exerciseRepository.getExerciseByName("Squat Curl")
+            ?: exerciseRepository.getExerciseByName("Squat Curl (DB)")
+            ?: return
+        val isoHighRow = exerciseRepository.getExerciseByName("Iso-Lateral High Row (Machine)")
+            ?: return
+        val hammerCurl = exerciseRepository.getExerciseByName("Hammer Curl (Dumbbell)")
+            ?: exerciseRepository.getExerciseByName("Hammer Curl")
+            ?: return
+
+        val date = Calendar.getInstance().apply {
+            set(2026, 3, 14, 7, 0, 0) // April 14 2026, 7am
+            set(Calendar.MILLISECOND, 0)
+        }.time
+
+        val workoutId = "lmu_seed_pull_20260414"
+        val workout = Workout(
+            id = workoutId,
+            date = date,
+            type = WorkoutType.PULL,
+            status = WorkoutStatus.COMPLETED,
+            gymId = lmuGym.id,
+            format = WorkoutFormat.STRENGTH,
+            durationMinutes = 45
+        )
+        workoutRepository.createWorkout(workout)
+
+        val squatCurlWe = WorkoutExercise(
+            id = UUID.randomUUID().toString(),
+            workoutId = workoutId,
+            exercise = squatCurl,
+            sets = listOf(
+                Set(reps = 10, weight = 40f, completed = true),
+                Set(reps = 10, weight = 40f, completed = true),
+                Set(reps = 10, weight = 40f, completed = true)
+            )
+        )
+        val isoHighRowWe = WorkoutExercise(
+            id = UUID.randomUUID().toString(),
+            workoutId = workoutId,
+            exercise = isoHighRow,
+            sets = listOf(
+                Set(reps = 10, weight = 174f, completed = true),
+                Set(reps = 10, weight = 184f, completed = true),
+                Set(reps = 10, weight = 194f, completed = true)
+            )
+        )
+        val hammerCurlWe = WorkoutExercise(
+            id = UUID.randomUUID().toString(),
+            workoutId = workoutId,
+            exercise = hammerCurl,
+            sets = listOf(
+                Set(reps = 10, weight = 30f, completed = true),
+                Set(reps = 10, weight = 30f, completed = true)
+            )
+        )
+
+        workoutRepository.addExerciseToWorkout(workoutId, squatCurlWe)
+        workoutRepository.addExerciseToWorkout(workoutId, isoHighRowWe)
+        workoutRepository.addExerciseToWorkout(workoutId, hammerCurlWe)
 
         profileComputerUseCase.recomputeFullProfile()
     }

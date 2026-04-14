@@ -6,6 +6,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.workoutapp.domain.model.*
 import com.workoutapp.domain.repository.ExerciseRepository
+import com.workoutapp.domain.repository.GymRepository
 import com.workoutapp.domain.repository.WorkoutRepository
 import android.util.Log
 import com.workoutapp.domain.usecase.DeleteWorkoutUseCase
@@ -38,7 +39,8 @@ class WorkoutViewModel @Inject constructor(
     private val profileRepository: TrainingProfileRepository,
     private val stravaSyncManager: StravaSyncManager,
     private val deleteWorkoutUseCase: DeleteWorkoutUseCase,
-    private val blockStateRepository: com.workoutapp.domain.repository.BlockStateRepository
+    private val blockStateRepository: com.workoutapp.domain.repository.BlockStateRepository,
+    private val gymRepository: GymRepository
 ) : AndroidViewModel(application) {
 
     private val gymId: Long? = savedStateHandle["gymId"]
@@ -116,6 +118,12 @@ class WorkoutViewModel @Inject constructor(
                 )
 
                 workoutRepository.createWorkout(workout)
+                // Persist exercises immediately so the in-progress restore path at
+                // startWorkout() can recover the workout even if the process is
+                // killed before the user interacts. Without this, createWorkout
+                // writes only the parent row and restore fails its exercises
+                // non-empty check, forcing a fresh generation.
+                workoutRepository.replaceExercisesForWorkout(workout.id, workout.exercises)
                 currentWorkout = workout
 
                 val prescriptions = buildPrescriptions(workout.exercises)
@@ -159,11 +167,14 @@ class WorkoutViewModel @Inject constructor(
             }
         }
         _uiState.value = _uiState.value.copy(exercises = exercises)
+        autosaveProgress()
     }
-    
+
     fun removeSet(exerciseId: String, setIndex: Int) {
+        var mutated = false
         val exercises = _uiState.value.exercises.map { exercise ->
             if (exercise.id == exerciseId && exercise.sets.size > 1) {
+                mutated = true
                 exercise.copy(
                     sets = exercise.sets.filterIndexed { index, _ -> index != setIndex }
                 )
@@ -172,8 +183,9 @@ class WorkoutViewModel @Inject constructor(
             }
         }
         _uiState.value = _uiState.value.copy(exercises = exercises)
+        if (mutated) autosaveProgress()
     }
-    
+
     fun updateSet(exerciseId: String, setIndex: Int, reps: Int, weight: Float) {
         val exercises = _uiState.value.exercises.map { exercise ->
             if (exercise.id == exerciseId) {
@@ -210,6 +222,7 @@ class WorkoutViewModel @Inject constructor(
             }
         }
         _uiState.value = _uiState.value.copy(exercises = exercises)
+        autosaveProgress()
     }
 
     /**
@@ -229,46 +242,72 @@ class WorkoutViewModel @Inject constructor(
 
     fun shuffleExercise(exerciseId: String) {
         viewModelScope.launch {
+            val workout = currentWorkout ?: return@launch
             val currentExercise = _uiState.value.exercises.find { it.id == exerciseId } ?: return@launch
             val currentMuscleGroups = currentExercise.exercise.muscleGroups
-            
-            // Get all exercises that target the same muscle groups
-            val allExercises = exerciseRepository.getAllExercises().firstOrNull() ?: emptyList()
-            val activeExerciseIds = exerciseRepository.getActiveUserExercises().firstOrNull() ?: emptyList()
-            
-            // Filter exercises that share at least one muscle group with current exercise
-            val sameMuscleFroupExercises = allExercises.filter { exercise ->
-                exercise.id in activeExerciseIds && 
-                exercise.muscleGroups.any { it in currentMuscleGroups }
+
+            // Category pool: push/pull taxonomy (parity with GenerateWorkoutUseCase).
+            // Prevents cross-side leaks regardless of muscle-group tagging.
+            val categories = when (workout.type) {
+                WorkoutType.PUSH -> listOf(ExerciseCategory.STRENGTH_PUSH)
+                WorkoutType.PULL -> listOf(ExerciseCategory.STRENGTH_PULL, ExerciseCategory.STRENGTH_LEGS)
             }
-            
-            // Get exercises done in the last week
-            val recentExerciseIds = workoutRepository.getExerciseIdsFromLastWeek()
-            
-            // Filter out current exercises and recent exercises
+            val categoryPool = exerciseRepository.getUserActiveExercisesByCategories(categories)
+
+            // Equipment filter: only exercises performable at the current gym.
+            val gym = workout.gymId?.let { gymRepository.getGymById(it) } ?: gymRepository.getDefaultGym()
+            val equipmentCompatible = categoryPool.filter { exercise ->
+                gym?.let { g -> EquipmentType.canPerformExercise(exercise.equipment, g.equipmentList) } ?: true
+            }
+
+            // Similarity: share >=1 muscle group with swapped exercise, and not already in workout.
             val currentExerciseIds = _uiState.value.exercises.map { it.exercise.id }
-            val availableExercises = sameMuscleFroupExercises.filter { exercise ->
-                exercise.id !in currentExerciseIds && exercise.id !in recentExerciseIds
+            val similar = equipmentCompatible.filter { exercise ->
+                exercise.id !in currentExerciseIds &&
+                    exercise.muscleGroups.any { it in currentMuscleGroups }
             }
-            
-            if (availableExercises.isEmpty()) {
-                // If no alternatives, try without recent exercise filter
-                val lessRestrictiveExercises = sameMuscleFroupExercises.filter { exercise ->
-                    exercise.id !in currentExerciseIds
-                }
-                
-                if (lessRestrictiveExercises.isNotEmpty()) {
-                    val newExercise = lessRestrictiveExercises.random()
-                    replaceExercise(exerciseId, newExercise)
-                }
-                // If still no alternatives, do nothing
-            } else {
-                val newExercise = availableExercises.random()
-                replaceExercise(exerciseId, newExercise)
+
+            // Softened cooldown: prefer non-recent, fall back to full similar pool when
+            // too few candidates. Keeps variety without forcing a hard 7-day wall.
+            val recentExerciseIds = workoutRepository.getExerciseIdsFromLastWeek()
+            val preferred = similar.filter { it.id !in recentExerciseIds }
+            val pool = if (preferred.size >= 5) preferred else similar
+
+            if (pool.isNotEmpty()) {
+                replaceExercise(exerciseId, pool.random())
             }
         }
     }
     
+    /**
+     * Regenerate all exercises in the current workout. Reuses GenerateWorkoutUseCase
+     * so every constraint (push/pull side, equipment, category, cooldown) matches
+     * what the initial generator would produce. Keeps the same workout id/type/date
+     * so in-progress restore, history, and block-periodization state are unaffected.
+     */
+    fun shuffleAllExercises() {
+        viewModelScope.launch {
+            val workout = currentWorkout ?: return@launch
+            val generated = generateWorkoutUseCase(gymId = workout.gymId, typeOverride = workout.type)
+            if (generated.exercises.isEmpty()) return@launch
+
+            val newWorkoutExercises = generated.exercises.map { exercise ->
+                WorkoutExercise(
+                    id = UUID.randomUUID().toString(),
+                    workoutId = workout.id,
+                    exercise = exercise,
+                    sets = listOf(com.workoutapp.domain.model.Set(reps = 0, weight = 0f, completed = false))
+                )
+            }
+            val prescriptions = buildPrescriptions(newWorkoutExercises)
+            _uiState.value = _uiState.value.copy(
+                exercises = newWorkoutExercises,
+                prescriptions = prescriptions
+            )
+            autosaveProgress()
+        }
+    }
+
     private fun replaceExercise(oldExerciseId: String, newExercise: Exercise) {
         val exercises = _uiState.value.exercises.map { workoutExercise ->
             if (workoutExercise.id == oldExerciseId) {
@@ -283,11 +322,13 @@ class WorkoutViewModel @Inject constructor(
             }
         }
         _uiState.value = _uiState.value.copy(exercises = exercises)
+        autosaveProgress()
     }
-    
+
     fun removeExercise(exerciseId: String) {
         val exercises = _uiState.value.exercises.filter { it.id != exerciseId }
         _uiState.value = _uiState.value.copy(exercises = exercises)
+        autosaveProgress()
     }
     
     fun addExerciseToWorkout(exercise: Exercise) {
@@ -302,8 +343,9 @@ class WorkoutViewModel @Inject constructor(
         
         val exercises = _uiState.value.exercises + newWorkoutExercise
         _uiState.value = _uiState.value.copy(exercises = exercises)
+        autosaveProgress()
     }
-    
+
     /**
      * For each exercise in the freshly generated workout, try the profile-aware
      * prescriber first (per-set weights based on loading pattern). Falls back to
@@ -384,13 +426,12 @@ class WorkoutViewModel @Inject constructor(
     fun saveWorkoutProgress() {
         viewModelScope.launch {
             currentWorkout?.let { workout ->
+                // Sanitize RIR first (strip to null on incomplete exercises),
+                // then transactional replace (clears stale rows from shuffled-out
+                // exercises before inserting the sanitized current set).
                 val exercisesToPersist = sanitizeRirForPersist(_uiState.value.exercises)
-                // Save all workout exercises with current progress
-                exercisesToPersist.forEach { exercise ->
-                    workoutRepository.addExerciseToWorkout(workout.id, exercise)
-                }
+                workoutRepository.replaceExercisesForWorkout(workout.id, exercisesToPersist)
 
-                // Update workout status to incomplete
                 val incompleteWorkout = workout.copy(
                     status = WorkoutStatus.INCOMPLETE,
                     exercises = exercisesToPersist
@@ -401,7 +442,27 @@ class WorkoutViewModel @Inject constructor(
             }
         }
     }
-    
+
+    /**
+     * Silent persistence for lifecycle pauses (app backgrounded). Writes current
+     * exercises + sets to Room but preserves WorkoutStatus.IN_PROGRESS so the
+     * restore path at startWorkout() can recover this workout on relaunch.
+     *
+     * Diverges from saveWorkoutProgress() in two critical ways:
+     *   - Does NOT flip status to INCOMPLETE (that would break IN_PROGRESS restore)
+     *   - Does NOT set isCompleted = true (that would navigate away from screen)
+     */
+    fun autosaveProgress() {
+        viewModelScope.launch {
+            val workout = currentWorkout ?: return@launch
+            // Sanitize first so stale RIR on incomplete exercises never lands
+            // in Room, then transactional replace to clear shuffled-out rows.
+            val exercisesToPersist = sanitizeRirForPersist(_uiState.value.exercises)
+            workoutRepository.replaceExercisesForWorkout(workout.id, exercisesToPersist)
+            workoutRepository.updateWorkout(workout.copy(exercises = exercisesToPersist))
+        }
+    }
+
     /**
      * "Effective now" Date that respects the debug date-offset preference, matching
      * the offset already applied to workout creation dates in startWorkout().
@@ -445,11 +506,9 @@ class WorkoutViewModel @Inject constructor(
     fun completeWorkout() {
         viewModelScope.launch {
             currentWorkout?.let { workout ->
+                // Sanitize RIR first, then transactional replace for atomicity.
                 val exercisesToPersist = sanitizeRirForPersist(_uiState.value.exercises)
-                // Save all workout exercises
-                exercisesToPersist.forEach { exercise ->
-                    workoutRepository.addExerciseToWorkout(workout.id, exercise)
-                }
+                workoutRepository.replaceExercisesForWorkout(workout.id, exercisesToPersist)
 
                 // Compute session duration from start time
                 val durationMin = ((System.currentTimeMillis() - workoutStartTime) / 60000).toInt()
@@ -457,7 +516,7 @@ class WorkoutViewModel @Inject constructor(
                 // Update workout status
                 val completedWorkout = workout.copy(
                     status = WorkoutStatus.COMPLETED,
-                    exercises = _uiState.value.exercises,
+                    exercises = exercisesToPersist,
                     durationMinutes = durationMin
                 )
                 workoutRepository.updateWorkout(completedWorkout)

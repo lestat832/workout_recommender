@@ -1,10 +1,12 @@
 package com.workoutapp.di
 
+import com.workoutapp.data.repository.BlockStateRepositoryImpl
 import com.workoutapp.data.repository.ExerciseRepositoryImpl
 import com.workoutapp.data.repository.GymRepositoryImpl
 import com.workoutapp.data.repository.TrainingProfileRepositoryImpl
 import com.workoutapp.data.repository.UserPreferencesRepositoryImpl
 import com.workoutapp.data.repository.WorkoutRepositoryImpl
+import com.workoutapp.domain.repository.BlockStateRepository
 import com.workoutapp.domain.repository.ExerciseRepository
 import com.workoutapp.domain.repository.GymRepository
 import com.workoutapp.domain.repository.TrainingProfileRepository
@@ -49,4 +51,10 @@ abstract class RepositoryModule {
     abstract fun bindTrainingProfileRepository(
         trainingProfileRepositoryImpl: TrainingProfileRepositoryImpl
     ): TrainingProfileRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBlockStateRepository(
+        blockStateRepositoryImpl: BlockStateRepositoryImpl
+    ): BlockStateRepository
 }

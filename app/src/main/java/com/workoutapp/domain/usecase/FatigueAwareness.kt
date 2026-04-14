@@ -49,4 +49,48 @@ object FatigueAwareness {
             }
         }
     }
+
+    /**
+     * Returns a warning if any planned muscle group was trained in a completed
+     * workout within OVERLAP_WINDOW_HOURS of [now]. Else null.
+     */
+    fun checkMuscleOverlap(
+        plannedMuscleGroups: Set<MuscleGroup>,
+        recentWorkouts: List<CompletedWorkoutSummary>,
+        now: Date
+    ): String? {
+        val planned = plannedMuscleGroups - OVERLAP_EXCLUDED_MUSCLES
+        if (planned.isEmpty()) return null
+
+        val windowStart = now.time - TimeUnit.HOURS.toMillis(OVERLAP_WINDOW_HOURS)
+
+        val overlaps = mutableMapOf<MuscleGroup, Long>() // muscle -> hours since most-recent hit
+        for (w in recentWorkouts) {
+            if (w.date.time < windowStart) continue
+            if (w.date.time > now.time) continue // ignore workouts dated in the future of `now`
+            val recentMuscles = w.muscleGroups - OVERLAP_EXCLUDED_MUSCLES
+            val hoursAgo = TimeUnit.MILLISECONDS.toHours(now.time - w.date.time).coerceAtLeast(0)
+            for (m in planned.intersect(recentMuscles)) {
+                val existing = overlaps[m]
+                if (existing == null || hoursAgo < existing) overlaps[m] = hoursAgo
+            }
+        }
+
+        if (overlaps.isEmpty()) return null
+
+        val listed = overlaps.entries.sortedBy { it.value }.take(2)
+        val muscleLabels = listed.joinToString(", ") { it.key.toFriendlyName() }
+        val minHours = listed.first().value
+        return "$muscleLabels trained ${minHours}h ago — recovery may be incomplete"
+    }
+
+    private fun MuscleGroup.toFriendlyName(): String = when (this) {
+        MuscleGroup.CHEST -> "Chest"
+        MuscleGroup.SHOULDER -> "Shoulders"
+        MuscleGroup.TRICEP -> "Triceps"
+        MuscleGroup.LEGS -> "Legs"
+        MuscleGroup.BACK -> "Back"
+        MuscleGroup.BICEP -> "Biceps"
+        MuscleGroup.CORE -> "Core"
+    }
 }

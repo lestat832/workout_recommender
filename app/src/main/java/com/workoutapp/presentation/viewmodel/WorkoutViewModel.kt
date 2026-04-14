@@ -118,6 +118,14 @@ class WorkoutViewModel @Inject constructor(
                 )
 
                 workoutRepository.createWorkout(workout)
+                // Persist exercises immediately so the in-progress restore path at
+                // startWorkout() can recover the workout even if the process is
+                // killed before the user interacts. Without this, createWorkout
+                // writes only the parent row and restore fails its exercises
+                // non-empty check, forcing a fresh generation.
+                workout.exercises.forEach { ex ->
+                    workoutRepository.addExerciseToWorkout(workout.id, ex)
+                }
                 currentWorkout = workout
 
                 val prescriptions = buildPrescriptions(workout.exercises)
@@ -384,7 +392,27 @@ class WorkoutViewModel @Inject constructor(
             }
         }
     }
-    
+
+    /**
+     * Silent persistence for lifecycle pauses (app backgrounded). Writes current
+     * exercises + sets to Room but preserves WorkoutStatus.IN_PROGRESS so the
+     * restore path at startWorkout() can recover this workout on relaunch.
+     *
+     * Diverges from saveWorkoutProgress() in two critical ways:
+     *   - Does NOT flip status to INCOMPLETE (that would break IN_PROGRESS restore)
+     *   - Does NOT set isCompleted = true (that would navigate away from screen)
+     */
+    fun autosaveProgress() {
+        viewModelScope.launch {
+            val workout = currentWorkout ?: return@launch
+            val exercisesToPersist = _uiState.value.exercises
+            exercisesToPersist.forEach { exercise ->
+                workoutRepository.addExerciseToWorkout(workout.id, exercise)
+            }
+            workoutRepository.updateWorkout(workout.copy(exercises = exercisesToPersist))
+        }
+    }
+
     /**
      * "Effective now" Date that respects the debug date-offset preference, matching
      * the offset already applied to workout creation dates in startWorkout().

@@ -89,16 +89,22 @@ object FatigueAwareness {
      * INTENSITY_STACK_THRESHOLD completed sessions were also HARD. Else null.
      *
      * Caller passes `recentCompleted` pre-filtered to the last INTENSITY_LOOKBACK_DAYS
-     * (from whatever "now" they're using) and sorted date desc.
+     * (from whatever "now" they're using) and sorted date desc. Workouts dated
+     * after [now] are ignored — the debug date-offset testing tool can leave
+     * future-dated completed workouts in the DB, and those must not count as
+     * "prior" sessions for the stacking check.
      */
     fun checkIntensityStacking(
         recentCompleted: List<CompletedWorkoutSummary>,
-        plannedIntensity: Intensity
+        plannedIntensity: Intensity,
+        now: Date
     ): String? {
         if (plannedIntensity != Intensity.HARD) return null
-        if (recentCompleted.size < INTENSITY_STACK_THRESHOLD) return null
 
-        val lastN = recentCompleted.take(INTENSITY_STACK_THRESHOLD)
+        val past = recentCompleted.filter { it.date.time <= now.time }
+        if (past.size < INTENSITY_STACK_THRESHOLD) return null
+
+        val lastN = past.take(INTENSITY_STACK_THRESHOLD)
         val allHard = lastN.all { classify(it.format, it.durationMinutes) == Intensity.HARD }
         if (!allHard) return null
 

@@ -223,7 +223,8 @@ class HomeViewModel @Inject constructor(
                 )
                 val hint = com.workoutapp.domain.usecase.FatigueAwareness.checkIntensityStacking(
                     recentCompleted = recent,
-                    plannedIntensity = plannedIntensity
+                    plannedIntensity = plannedIntensity,
+                    now = now
                 )
                 if (hint != null) {
                     android.util.Log.d("FortisLupus", "Fatigue intensity hint: $hint")

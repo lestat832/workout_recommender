@@ -20,6 +20,11 @@ import com.workoutapp.data.database.HomeGymMovementCatalog
 import com.workoutapp.data.sync.StravaSyncManager
 import com.workoutapp.domain.repository.ExerciseRepository
 import com.workoutapp.domain.usecase.RepPrescriber
+import android.util.Log
+import com.workoutapp.domain.model.CompletedWorkoutSummary
+import com.workoutapp.domain.usecase.FatigueAwareness
+import java.util.Date
+import java.util.concurrent.TimeUnit
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -78,13 +83,7 @@ class ConditioningWorkoutViewModel @Inject constructor(
                 }
 
                 val workoutId = UUID.randomUUID().toString()
-                val prefs = getApplication<Application>().getSharedPreferences(
-                    "debug_prefs",
-                    android.content.Context.MODE_PRIVATE
-                )
-                val dateOffset = prefs.getInt("date_offset", 0)
-                val calendar = Calendar.getInstance()
-                calendar.add(Calendar.DAY_OF_YEAR, dateOffset)
+                val calendar = Calendar.getInstance().apply { time = effectiveNow() }
 
                 val workout = Workout(
                     id = workoutId,
@@ -119,6 +118,8 @@ class ConditioningWorkoutViewModel @Inject constructor(
                 }
                 currentWorkout = workout
 
+                val fatigueWarning = runCatching { computeFatigueWarning(workout.exercises) }.getOrNull()
+
                 _uiState.value = ConditioningUiState(
                     isLoading = false,
                     isPreview = true,
@@ -127,7 +128,8 @@ class ConditioningWorkoutViewModel @Inject constructor(
                     exercises = workout.exercises,
                     coachNote = buildCoachNote(generated.format, workout.exercises),
                     elapsedSeconds = 0,
-                    rounds = 0
+                    rounds = 0,
+                    fatigueWarning = fatigueWarning
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -249,6 +251,31 @@ class ConditioningWorkoutViewModel @Inject constructor(
         }
     }
 
+    private fun effectiveNow(): Date {
+        val prefs = getApplication<Application>().getSharedPreferences("debug_prefs", android.content.Context.MODE_PRIVATE)
+        val dateOffset = prefs.getInt("date_offset", 0)
+        val cal = Calendar.getInstance()
+        cal.add(Calendar.DAY_OF_YEAR, dateOffset)
+        return cal.time
+    }
+
+    private suspend fun computeFatigueWarning(exercises: List<WorkoutExercise>): String? {
+        if (exercises.isEmpty()) return null
+        val now = effectiveNow()
+        val since = Date(now.time - TimeUnit.HOURS.toMillis(FatigueAwareness.OVERLAP_WINDOW_HOURS))
+        val recent = workoutRepository.getCompletedWorkoutSummariesSince(since)
+        val plannedMuscles = exercises.flatMap { it.exercise.muscleGroups }.toSet()
+        val warning = FatigueAwareness.checkMuscleOverlap(
+            plannedMuscleGroups = plannedMuscles,
+            recentWorkouts = recent,
+            now = now
+        )
+        if (warning != null) {
+            Log.d("FortisLupus", "Fatigue overlap (conditioning): $warning")
+        }
+        return warning
+    }
+
     fun cancelWorkout() {
         viewModelScope.launch {
             currentWorkout?.let { workout ->
@@ -296,5 +323,6 @@ data class ConditioningUiState(
     val rounds: Int = 0,
     val currentStationIndex: Int = -1,
     val error: String? = null,
-    val isCompleted: Boolean = false
+    val isCompleted: Boolean = false,
+    val fatigueWarning: String? = null
 )

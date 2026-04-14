@@ -167,6 +167,28 @@ class WorkoutRepositoryImpl @Inject constructor(
             .associate { it.exerciseId to it.lastDate }
     }
 
+    override suspend fun getCompletedWorkoutSummariesSince(since: Date): List<CompletedWorkoutSummary> {
+        val rows = workoutDao.getCompletedWorkoutSummariesSince(since.time)
+        return rows.mapNotNull { row ->
+            val format = runCatching { WorkoutFormat.valueOf(row.format) }.getOrNull() ?: return@mapNotNull null
+            val muscleGroups = row.muscleGroupsRaw
+                .split('|', ',')
+                .mapNotNull { token ->
+                    val trimmed = token.trim()
+                    if (trimmed.isEmpty()) null
+                    else runCatching { MuscleGroup.valueOf(trimmed) }.getOrNull()
+                }
+                .toSet()
+            CompletedWorkoutSummary(
+                id = row.id,
+                date = row.date,
+                format = format,
+                durationMinutes = row.durationMinutes,
+                muscleGroups = muscleGroups
+            )
+        }
+    }
+
     private fun WorkoutEntity.toDomain(exercises: List<WorkoutExercise>): Workout = Workout(
         id = id,
         date = date,

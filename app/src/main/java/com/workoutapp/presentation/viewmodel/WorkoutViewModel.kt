@@ -7,12 +7,15 @@ import androidx.lifecycle.viewModelScope
 import com.workoutapp.domain.model.*
 import com.workoutapp.domain.repository.ExerciseRepository
 import com.workoutapp.domain.repository.WorkoutRepository
+import android.util.Log
 import com.workoutapp.domain.usecase.DeleteWorkoutUseCase
+import com.workoutapp.domain.usecase.FatigueAwareness
 import com.workoutapp.domain.usecase.GenerateWorkoutUseCase
 import com.workoutapp.domain.usecase.ProfileComputerUseCase
 import com.workoutapp.data.sync.StravaSyncManager
 import com.workoutapp.domain.usecase.StrengthSetPrescriber
 import com.workoutapp.domain.usecase.toWorkoutPrescription
+import java.util.concurrent.TimeUnit
 import com.workoutapp.domain.repository.TrainingProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -69,10 +72,14 @@ class WorkoutViewModel @Inject constructor(
                     currentWorkout = existingWorkout
                     workoutStartTime = existingWorkout.date.time
                     val prescriptions = buildPrescriptions(existingWorkout.exercises)
+                    // Use "now" not existingWorkout.date: warning reflects current-moment
+                    // recovery state, matching when the user is actually training.
+                    val fatigueWarning = runCatching { computeFatigueWarning(existingWorkout.exercises) }.getOrNull()
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         exercises = existingWorkout.exercises,
-                        prescriptions = prescriptions
+                        prescriptions = prescriptions,
+                        fatigueWarning = fatigueWarning
                     )
                     return@launch
                 }
@@ -90,10 +97,7 @@ class WorkoutViewModel @Inject constructor(
                 val workoutId = UUID.randomUUID().toString()
                 val workoutType = generated.type
 
-                val prefs = getApplication<Application>().getSharedPreferences("debug_prefs", android.content.Context.MODE_PRIVATE)
-                val dateOffset = prefs.getInt("date_offset", 0)
-                val calendar = Calendar.getInstance()
-                calendar.add(Calendar.DAY_OF_YEAR, dateOffset)
+                val calendar = Calendar.getInstance().apply { time = effectiveNow() }
 
                 val workout = Workout(
                     id = workoutId,
@@ -115,11 +119,13 @@ class WorkoutViewModel @Inject constructor(
                 currentWorkout = workout
 
                 val prescriptions = buildPrescriptions(workout.exercises)
+                val fatigueWarning = runCatching { computeFatigueWarning(workout.exercises) }.getOrNull()
 
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     exercises = workout.exercises,
-                    prescriptions = prescriptions
+                    prescriptions = prescriptions,
+                    fatigueWarning = fatigueWarning
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -380,6 +386,35 @@ class WorkoutViewModel @Inject constructor(
         }
     }
     
+    /**
+     * "Effective now" Date that respects the debug date-offset preference, matching
+     * the offset already applied to workout creation dates in startWorkout().
+     */
+    private fun effectiveNow(): Date {
+        val prefs = getApplication<Application>().getSharedPreferences("debug_prefs", android.content.Context.MODE_PRIVATE)
+        val dateOffset = prefs.getInt("date_offset", 0)
+        val cal = Calendar.getInstance()
+        cal.add(Calendar.DAY_OF_YEAR, dateOffset)
+        return cal.time
+    }
+
+    private suspend fun computeFatigueWarning(exercises: List<WorkoutExercise>): String? {
+        if (exercises.isEmpty()) return null
+        val now = effectiveNow()
+        val since = Date(now.time - TimeUnit.HOURS.toMillis(FatigueAwareness.OVERLAP_WINDOW_HOURS))
+        val recent = workoutRepository.getCompletedWorkoutSummariesSince(since)
+        val plannedMuscles = exercises.flatMap { it.exercise.muscleGroups }.toSet()
+        val warning = FatigueAwareness.checkMuscleOverlap(
+            plannedMuscleGroups = plannedMuscles,
+            recentWorkouts = recent,
+            now = now
+        )
+        if (warning != null) {
+            Log.d("FortisLupus", "Fatigue overlap (strength): $warning")
+        }
+        return warning
+    }
+
     fun completeWorkout() {
         viewModelScope.launch {
             currentWorkout?.let { workout ->
@@ -435,7 +470,8 @@ data class WorkoutUiState(
     val exercises: List<WorkoutExercise> = emptyList(),
     val prescriptions: Map<String, WorkoutPrescription> = emptyMap(),
     val error: String? = null,
-    val isCompleted: Boolean = false
+    val isCompleted: Boolean = false,
+    val fatigueWarning: String? = null
 )
 
 // Number of most-recent completed workouts to scan when building the

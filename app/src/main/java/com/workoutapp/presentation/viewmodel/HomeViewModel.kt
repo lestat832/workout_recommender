@@ -30,6 +30,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
     private val workoutRepository: WorkoutRepository,
     private val exerciseRepository: ExerciseRepository,
     private val gymRepository: GymRepository,
@@ -75,6 +76,9 @@ class HomeViewModel @Inject constructor(
 
     private val _blockIndicator = MutableStateFlow<String?>(null)
     val blockIndicator: StateFlow<String?> = _blockIndicator.asStateFlow()
+
+    private val _intensityHint = MutableStateFlow<String?>(null)
+    val intensityHint: StateFlow<String?> = _intensityHint.asStateFlow()
 
     init {
         loadLastWorkout()
@@ -142,6 +146,7 @@ class HomeViewModel @Inject constructor(
             viewModelScope.launch {
                 _nextWorkoutFormat.value =
                     generateConditioningWorkoutUseCase.predictNextFormat(gymId)
+                recomputeIntensityHint(gymId)
             }
             _blockIndicator.value = null
             return
@@ -161,6 +166,74 @@ class HomeViewModel @Inject constructor(
                 plateauedExerciseCount = 0
             )
             _blockIndicator.value = state.phaseLabel
+            recomputeIntensityHint(gymId)
+        }
+    }
+
+    private fun effectiveNow(): java.util.Date {
+        val prefs = context.getSharedPreferences("debug_prefs", android.content.Context.MODE_PRIVATE)
+        val dateOffset = prefs.getInt("date_offset", 0)
+        val cal = java.util.Calendar.getInstance()
+        cal.add(java.util.Calendar.DAY_OF_YEAR, dateOffset)
+        return cal.time
+    }
+
+    /**
+     * Recomputes the intensity-stacking hint using the currently previewed workout
+     * type/format for [gymId]. Must be called any time the preview changes
+     * (updateNextType, skip, gym switch, workout completion).
+     */
+    private fun recomputeIntensityHint(gymId: Long?) {
+        if (gymId == null) {
+            _intensityHint.value = null
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val now = effectiveNow()
+                val since = java.util.Date(now.time - java.util.concurrent.TimeUnit.DAYS.toMillis(
+                    com.workoutapp.domain.usecase.FatigueAwareness.INTENSITY_LOOKBACK_DAYS
+                ))
+                val recent = workoutRepository.getCompletedWorkoutSummariesSince(since)
+
+                val style = _selectedGymStyle.value
+                val plannedFormat: WorkoutFormat
+                val plannedDuration: Int?
+                when (style) {
+                    GymWorkoutStyle.STRENGTH -> {
+                        plannedFormat = WorkoutFormat.STRENGTH
+                        plannedDuration = null
+                    }
+                    GymWorkoutStyle.CONDITIONING -> {
+                        plannedFormat = _nextWorkoutFormat.value ?: WorkoutFormat.AMRAP
+                        // Match canonical durations used by GenerateConditioningWorkoutUseCase.
+                        plannedDuration = when (plannedFormat) {
+                            WorkoutFormat.EMOM -> 20
+                            WorkoutFormat.AMRAP -> 15
+                            else -> null
+                        }
+                    }
+                    null -> {
+                        _intensityHint.value = null
+                        return@launch
+                    }
+                }
+                val plannedIntensity = com.workoutapp.domain.usecase.FatigueAwareness.classify(
+                    plannedFormat, plannedDuration
+                )
+                val hint = com.workoutapp.domain.usecase.FatigueAwareness.checkIntensityStacking(
+                    recentCompleted = recent,
+                    plannedIntensity = plannedIntensity,
+                    now = now
+                )
+                if (hint != null) {
+                    android.util.Log.d("FortisLupus", "Fatigue intensity hint: $hint")
+                }
+                _intensityHint.value = hint
+            } catch (e: Exception) {
+                android.util.Log.w("FortisLupus", "Intensity hint computation failed", e)
+                _intensityHint.value = null
+            }
         }
     }
 
@@ -186,8 +259,9 @@ class HomeViewModel @Inject constructor(
             }
             null -> Unit
         }
+        recomputeIntensityHint(_selectedGymId.value)
     }
-    
+
     fun calculateTotalWeight(workout: Workout): Float {
         return workout.exercises.sumOf { exercise ->
             exercise.sets.sumOf { set ->

@@ -29,6 +29,7 @@ import com.workoutapp.domain.model.Set
 import com.workoutapp.domain.model.WorkoutExercise
 import com.workoutapp.domain.model.SetType
 import com.workoutapp.domain.model.WorkoutPrescription
+import com.workoutapp.presentation.ui.components.FatigueWarningCaption
 import com.workoutapp.presentation.viewmodel.WorkoutViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -158,6 +159,9 @@ fun WorkoutScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    item {
+                        FatigueWarningCaption(warning = uiState.fatigueWarning)
+                    }
                     items(uiState.exercises.size) { index ->
                         ExerciseCard(
                             exercise = uiState.exercises[index],

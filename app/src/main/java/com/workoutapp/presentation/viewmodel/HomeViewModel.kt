@@ -178,6 +178,13 @@ class HomeViewModel @Inject constructor(
         return cal.time
     }
 
+    private fun isSameDay(a: java.util.Date, b: java.util.Date): Boolean {
+        val calA = java.util.Calendar.getInstance().apply { time = a }
+        val calB = java.util.Calendar.getInstance().apply { time = b }
+        return calA.get(java.util.Calendar.YEAR) == calB.get(java.util.Calendar.YEAR) &&
+            calA.get(java.util.Calendar.DAY_OF_YEAR) == calB.get(java.util.Calendar.DAY_OF_YEAR)
+    }
+
     /**
      * Recomputes the intensity-stacking hint using the currently previewed workout
      * type/format for [gymId]. Must be called any time the preview changes
@@ -195,6 +202,16 @@ class HomeViewModel @Inject constructor(
                     com.workoutapp.domain.usecase.FatigueAwareness.INTENSITY_LOOKBACK_DAYS
                 ))
                 val recent = workoutRepository.getCompletedWorkoutSummariesSince(since)
+
+                // Suppress the intensity-stacking hint once the user has already
+                // trained today — "consider easing up today" is non-actionable
+                // when today's session is already logged. The predicate in
+                // FatigueAwareness stays true (today's HARD workout counts
+                // toward the last-2 stack), but the advice no longer applies.
+                if (recent.any { isSameDay(it.date, now) }) {
+                    _intensityHint.value = null
+                    return@launch
+                }
 
                 val style = _selectedGymStyle.value
                 val plannedFormat: WorkoutFormat

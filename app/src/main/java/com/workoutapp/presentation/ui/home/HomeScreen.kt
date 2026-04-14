@@ -78,6 +78,7 @@ fun HomeScreen(
     val selectedGymStyle by viewModel.selectedGymStyle.collectAsState()
     val nextWorkoutFormat by viewModel.nextWorkoutFormat.collectAsState()
     val blockIndicator by viewModel.blockIndicator.collectAsState()
+    val intensityHint by viewModel.intensityHint.collectAsState()
 
     var showDebugMenu by remember { mutableStateOf(false) }
     var showSettingsMenu by remember { mutableStateOf(false) }
@@ -435,6 +436,7 @@ fun HomeScreen(
                 gymStyle = selectedGymStyle,
                 dateOffset = testDateOffset,
                 blockIndicator = blockIndicator,
+                intensityHint = intensityHint,
                 onTap = {
                     val id = selectedGymId
                     val style = selectedGymStyle
@@ -607,6 +609,7 @@ fun NextWorkoutCard(
     gymStyle: GymWorkoutStyle?,
     dateOffset: Int = 0,
     blockIndicator: String? = null,
+    intensityHint: String? = null,
     onTap: () -> Unit = {},
     onSkip: () -> Unit = {}
 ) {
@@ -683,6 +686,14 @@ fun NextWorkoutCard(
                     text = blockIndicator,
                     style = MaterialTheme.typography.bodySmall,
                     color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.7f)
+                )
+            }
+
+            if (!intensityHint.isNullOrBlank()) {
+                Text(
+                    text = intensityHint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
                 )
             }
 

@@ -211,7 +211,22 @@ class WorkoutViewModel @Inject constructor(
         }
         _uiState.value = _uiState.value.copy(exercises = exercises)
     }
-    
+
+    /**
+     * Phase 4a: record user-reported reps-in-reserve for a strength exercise.
+     * State-only; persistence happens via the existing saveWorkoutProgress /
+     * completeWorkout pipeline which writes all exercises via
+     * addExerciseToWorkout (Room @Insert with REPLACE). Pass null to clear a
+     * previously-selected value.
+     */
+    fun setRir(exerciseId: String, rir: Int?) {
+        require(rir == null || rir in 0..5) { "RIR must be null or 0..5" }
+        val exercises = _uiState.value.exercises.map { exercise ->
+            if (exercise.id == exerciseId) exercise.copy(rir = rir) else exercise
+        }
+        _uiState.value = _uiState.value.copy(exercises = exercises)
+    }
+
     fun shuffleExercise(exerciseId: String) {
         viewModelScope.launch {
             val currentExercise = _uiState.value.exercises.find { it.id == exerciseId } ?: return@launch
@@ -369,18 +384,19 @@ class WorkoutViewModel @Inject constructor(
     fun saveWorkoutProgress() {
         viewModelScope.launch {
             currentWorkout?.let { workout ->
+                val exercisesToPersist = sanitizeRirForPersist(_uiState.value.exercises)
                 // Save all workout exercises with current progress
-                _uiState.value.exercises.forEach { exercise ->
+                exercisesToPersist.forEach { exercise ->
                     workoutRepository.addExerciseToWorkout(workout.id, exercise)
                 }
-                
+
                 // Update workout status to incomplete
                 val incompleteWorkout = workout.copy(
                     status = WorkoutStatus.INCOMPLETE,
-                    exercises = _uiState.value.exercises
+                    exercises = exercisesToPersist
                 )
                 workoutRepository.updateWorkout(incompleteWorkout)
-                
+
                 _uiState.value = _uiState.value.copy(isCompleted = true)
             }
         }
@@ -397,6 +413,17 @@ class WorkoutViewModel @Inject constructor(
         cal.add(Calendar.DAY_OF_YEAR, dateOffset)
         return cal.time
     }
+
+    /**
+     * RIR is only meaningful for a fully-completed exercise. Strip it otherwise
+     * so the DB never holds a stale rir for an exercise with zero completed
+     * volume (see round-2 validation notes).
+     */
+    private fun sanitizeRirForPersist(exercises: List<WorkoutExercise>): List<WorkoutExercise> =
+        exercises.map { ex ->
+            val allComplete = ex.sets.isNotEmpty() && ex.sets.all { it.completed }
+            if (allComplete) ex else ex.copy(rir = null)
+        }
 
     private suspend fun computeFatigueWarning(exercises: List<WorkoutExercise>): String? {
         if (exercises.isEmpty()) return null
@@ -418,8 +445,9 @@ class WorkoutViewModel @Inject constructor(
     fun completeWorkout() {
         viewModelScope.launch {
             currentWorkout?.let { workout ->
+                val exercisesToPersist = sanitizeRirForPersist(_uiState.value.exercises)
                 // Save all workout exercises
-                _uiState.value.exercises.forEach { exercise ->
+                exercisesToPersist.forEach { exercise ->
                     workoutRepository.addExerciseToWorkout(workout.id, exercise)
                 }
 

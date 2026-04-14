@@ -14,5 +14,6 @@ data class WorkoutExerciseEntity(
     val workoutId: String,
     val exerciseId: String,
     val sets: List<Set>,
-    val prescription: String? = null
+    val prescription: String? = null,
+    val rir: Int? = null
 )

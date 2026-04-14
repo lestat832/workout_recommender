@@ -67,6 +67,7 @@ class InitializeExercisesUseCase @Inject constructor(
         private const val KEY_EXERCISEDB_ACTIVATED = "exercisedb_activated"
         private const val KEY_LMU_BENCH_20260412_SEEDED = "lmu_bench_20260412_seeded"
         private const val KEY_HOME_GYM_EMOM_20260413_SEEDED = "home_gym_emom_20260413_seeded"
+        private const val KEY_HOME_GYM_AMRAP_20260414_SEEDED = "home_gym_amrap_20260414_seeded"
 
         // Ids added after the initial Home Gym catalog seed. Existing installs
         // need a one-shot insert + activation for these; fresh installs pick
@@ -249,6 +250,10 @@ class InitializeExercisesUseCase @Inject constructor(
 
             safeRun(KEY_HOME_GYM_EMOM_20260413_SEEDED) {
                 seedHomeGymEmom20260413()
+            }
+
+            safeRun(KEY_HOME_GYM_AMRAP_20260414_SEEDED) {
+                seedHomeGymAmrap20260414()
             }
 
             Result.success(null)
@@ -465,6 +470,51 @@ class InitializeExercisesUseCase @Inject constructor(
             format = WorkoutFormat.EMOM,
             durationMinutes = 20,
             completedRounds = 5
+        )
+        workoutRepository.createWorkout(workout)
+
+        resolved.forEachIndexed { index, exercise ->
+            val we = WorkoutExercise(
+                id = UUID.randomUUID().toString(),
+                workoutId = workoutId,
+                exercise = exercise,
+                sets = listOf(Set(reps = 0, weight = 0f, completed = true)),
+                prescription = prescriptions[index]
+            )
+            workoutRepository.addExerciseToWorkout(workoutId, we)
+        }
+
+        profileComputerUseCase.recomputeFullProfile()
+    }
+
+    private suspend fun seedHomeGymAmrap20260414() {
+        val homeGym = gymRepository.getAllGyms().firstOrNull { it.name == "Home Gym" } ?: return
+
+        val date = Calendar.getInstance().apply {
+            set(2026, 3, 14, 5, 45, 0) // April 14 2026, 5:45am
+            set(Calendar.MILLISECOND, 0)
+        }.time
+
+        val exerciseIds = listOf(
+            "custom_burpees",
+            "custom_trx_side_lunge",
+            "custom_kb_clean"
+        )
+        val resolved = exerciseIds.mapNotNull { exerciseRepository.getExerciseById(it) }
+        if (resolved.size != exerciseIds.size) return
+
+        val prescriptions = listOf("\u00d7 6-8", "\u00d7 5-6/side", "\u00d7 6/side @ 20lb")
+
+        val workoutId = "home_gym_seed_amrap_20260414"
+        val workout = Workout(
+            id = workoutId,
+            date = date,
+            type = WorkoutType.PULL,
+            status = WorkoutStatus.COMPLETED,
+            gymId = homeGym.id,
+            format = WorkoutFormat.AMRAP,
+            durationMinutes = 15,
+            completedRounds = 9
         )
         workoutRepository.createWorkout(workout)
 

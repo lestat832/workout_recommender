@@ -58,7 +58,13 @@ fun WorkoutScreen(
             TopAppBar(
                 title = { Text("The Hunt") },
                 navigationIcon = {
-                    IconButton(onClick = { showCancelDialog = true }) {
+                    IconButton(onClick = {
+                        if (uiState.error != null || uiState.exercises.isEmpty()) {
+                            viewModel.cancelWorkout()
+                        } else {
+                            showCancelDialog = true
+                        }
+                    }) {
                         Icon(
                             Icons.Default.ArrowBack,
                             contentDescription = "Back"

@@ -34,7 +34,8 @@ class WorkoutViewModel @Inject constructor(
     private val profileComputerUseCase: ProfileComputerUseCase,
     private val profileRepository: TrainingProfileRepository,
     private val stravaSyncManager: StravaSyncManager,
-    private val deleteWorkoutUseCase: DeleteWorkoutUseCase
+    private val deleteWorkoutUseCase: DeleteWorkoutUseCase,
+    private val blockStateRepository: com.workoutapp.domain.repository.BlockStateRepository
 ) : AndroidViewModel(application) {
 
     private val gymId: Long? = savedStateHandle["gymId"]
@@ -50,6 +51,7 @@ class WorkoutViewModel @Inject constructor(
     val uiState: StateFlow<WorkoutUiState> = _uiState.asStateFlow()
 
     private var currentWorkout: Workout? = null
+    private var blockState: com.workoutapp.domain.usecase.BlockPeriodization.State? = null
     private var workoutStartTime: Long = System.currentTimeMillis()
 
     init {
@@ -76,6 +78,7 @@ class WorkoutViewModel @Inject constructor(
                 }
 
                 val generated = generateWorkoutUseCase(gymId, typeOverride)
+                blockState = generated.blockState
                 if (generated.exercises.isEmpty()) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -314,7 +317,9 @@ class WorkoutViewModel @Inject constructor(
                 // Profile-aware: per-set prescriptions with loading pattern
                 StrengthSetPrescriber.prescribeFromProfile(
                     positionInWorkout = index,
-                    profile = profile
+                    profile = profile,
+                    weekInBlock = blockState?.weekInBlock ?: 1,
+                    isDeloadWeek = blockState?.isDeloadWeek ?: false
                 )
             } else {
                 // Fallback: legacy history-based
@@ -324,7 +329,11 @@ class WorkoutViewModel @Inject constructor(
                     .take(2)
                 val legacy = StrengthSetPrescriber.prescribe(
                     positionInWorkout = index,
-                    history = history
+                    history = history,
+                    equipment = workoutExercise.exercise.equipment,
+                    progressionRate = profiles[workoutExercise.exercise.id]?.progressionRateLbPerMonth,
+                    weekInBlock = blockState?.weekInBlock ?: 1,
+                    isDeloadWeek = blockState?.isDeloadWeek ?: false
                 )
                 // Wrap legacy prescription into WorkoutPrescription
                 legacy.toWorkoutPrescription()
@@ -346,8 +355,8 @@ class WorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             currentWorkout?.let { workout ->
                 deleteWorkoutUseCase(workout.id)
-                _uiState.value = _uiState.value.copy(isCompleted = true)
             }
+            _uiState.value = _uiState.value.copy(isCompleted = true)
         }
     }
     
@@ -393,6 +402,27 @@ class WorkoutViewModel @Inject constructor(
                 // Update training profile
                 profileComputerUseCase.updateAfterWorkout(completedWorkout.id)
                 stravaSyncManager.queueWorkout(completedWorkout.id)
+
+                // Block state persistence on completion
+                gymId?.let { gId ->
+                    val existing = blockStateRepository.getState(gId)
+                    val absenceReason = com.workoutapp.domain.usecase.BlockPeriodization.DeloadReason.EXTENDED_ABSENCE
+                    when {
+                        // First-ever workout: initialize block 1 starting today
+                        existing == null -> {
+                            blockStateRepository.setState(gId, completedWorkout.date, 1)
+                        }
+                        // Returning from extended absence: reset with incremented block number
+                        blockState?.deloadReason == absenceReason -> {
+                            val newNumber = existing.second + 1
+                            blockStateRepository.setState(gId, completedWorkout.date, newNumber)
+                        }
+                        // Completed scheduled or plateau week-4 deload: advance to next block
+                        blockState?.weekInBlock == 4 -> {
+                            blockStateRepository.advanceBlock(gId)
+                        }
+                    }
+                }
 
                 _uiState.value = _uiState.value.copy(isCompleted = true)
             }

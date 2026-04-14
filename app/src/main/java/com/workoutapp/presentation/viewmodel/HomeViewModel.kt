@@ -13,6 +13,7 @@ import com.workoutapp.domain.repository.GymRepository
 import com.workoutapp.domain.repository.UserPreferencesRepository
 import com.workoutapp.domain.repository.WorkoutRepository
 import com.workoutapp.domain.usecase.DeleteWorkoutUseCase
+import com.workoutapp.domain.usecase.ExportWorkoutsUseCase
 import com.workoutapp.domain.usecase.GenerateConditioningWorkoutUseCase
 import com.workoutapp.domain.usecase.GenerateWorkoutUseCase
 import com.workoutapp.domain.usecase.ImportDebugDataUseCase
@@ -37,7 +38,9 @@ class HomeViewModel @Inject constructor(
     private val generateConditioningWorkoutUseCase: GenerateConditioningWorkoutUseCase,
     private val importWorkoutUseCase: ImportWorkoutUseCase,
     private val importDebugDataUseCase: ImportDebugDataUseCase,
-    private val deleteWorkoutUseCase: DeleteWorkoutUseCase
+    private val deleteWorkoutUseCase: DeleteWorkoutUseCase,
+    private val exportWorkoutsUseCase: ExportWorkoutsUseCase,
+    private val blockStateRepository: com.workoutapp.domain.repository.BlockStateRepository
 ) : ViewModel() {
 
     private val _lastWorkout = MutableStateFlow<Workout?>(null)
@@ -69,6 +72,9 @@ class HomeViewModel @Inject constructor(
     // workout completion, skip() flips it in place.
     private val _nextWorkoutFormat = MutableStateFlow<WorkoutFormat?>(null)
     val nextWorkoutFormat: StateFlow<WorkoutFormat?> = _nextWorkoutFormat.asStateFlow()
+
+    private val _blockIndicator = MutableStateFlow<String?>(null)
+    val blockIndicator: StateFlow<String?> = _blockIndicator.asStateFlow()
 
     init {
         loadLastWorkout()
@@ -129,19 +135,32 @@ class HomeViewModel @Inject constructor(
     private fun updateNextType(gymId: Long?) {
         if (gymId == null) return
         // Update the style first so HomeScreen can branch the card even before
-        // the predict call resolves (conditioning gyms don't need prediction).
+        // the predict call resolves.
         val style = _gyms.value.firstOrNull { it.id == gymId }?.workoutStyle
         _selectedGymStyle.value = style
         if (style == GymWorkoutStyle.CONDITIONING) {
-            // Seed a fresh random format for the card. Stable until the next
-            // recompute (gym switch, workout completion) or a skip() flip.
-            _nextWorkoutFormat.value = generateConditioningWorkoutUseCase.predictNextFormat()
+            viewModelScope.launch {
+                _nextWorkoutFormat.value =
+                    generateConditioningWorkoutUseCase.predictNextFormat(gymId)
+            }
+            _blockIndicator.value = null
             return
         }
         // Strength gym — clear any stale format from a prior CONDITIONING gym.
         _nextWorkoutFormat.value = null
         viewModelScope.launch {
             _nextWorkoutType.value = generateWorkoutUseCase.predictNextType(gymId)
+            // Null state = no completed workouts yet; show synthetic Week 1 without persisting
+            val persisted = blockStateRepository.getState(gymId)
+            val (blockStart, blockNumber) = persisted ?: (java.util.Date() to 1)
+            val lastWorkout = workoutRepository.getLastCompletedWorkoutByGym(gymId)
+            val state = com.workoutapp.domain.usecase.BlockPeriodization.computeState(
+                blockStartDate = blockStart,
+                blockNumber = blockNumber,
+                lastWorkoutDate = lastWorkout?.date,
+                plateauedExerciseCount = 0
+            )
+            _blockIndicator.value = state.phaseLabel
         }
     }
 
@@ -204,6 +223,19 @@ class HomeViewModel @Inject constructor(
         _importState.value = ImportState.Idle
     }
     
+    private val _exportCsv = MutableStateFlow<String?>(null)
+    val exportCsv: StateFlow<String?> = _exportCsv.asStateFlow()
+
+    fun exportWorkouts() {
+        viewModelScope.launch {
+            _exportCsv.value = exportWorkoutsUseCase()
+        }
+    }
+
+    fun clearExport() {
+        _exportCsv.value = null
+    }
+
     fun resetDebugDataImport() {
         importDebugDataUseCase.resetDebugDataImport()
     }

@@ -24,7 +24,8 @@ data class WorkoutExercise(
     val id: String,
     val workoutId: String,
     val exercise: Exercise,
-    val sets: List<Set>
+    val sets: List<Set>,
+    val prescription: String? = null
 )
 
 data class Set(

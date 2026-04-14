@@ -9,10 +9,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -26,7 +30,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import android.app.Activity
+import android.view.WindowManager
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -147,7 +155,8 @@ fun ConditioningWorkoutScreen(
             if (uiState.isPreview) {
                 PreviewContent(
                     uiState = uiState,
-                    onStart = { viewModel.beginWorkout() }
+                    onStart = { viewModel.beginWorkout() },
+                    onShuffle = { exerciseId -> viewModel.shuffleExercise(exerciseId) }
                 )
             } else {
                 ActiveWorkoutContent(
@@ -164,7 +173,8 @@ fun ConditioningWorkoutScreen(
 @Composable
 private fun PreviewContent(
     uiState: com.workoutapp.presentation.viewmodel.ConditioningUiState,
-    onStart: () -> Unit
+    onStart: () -> Unit,
+    onShuffle: (String) -> Unit = {}
 ) {
     val sessionIds = uiState.exercises.map { it.exercise.id }
 
@@ -189,7 +199,11 @@ private fun PreviewContent(
                     format = uiState.format,
                     sessionIds = sessionIds
                 )
-                ExerciseStationCard(workoutExercise, repTarget)
+                ExerciseStationCard(
+                    workoutExercise = workoutExercise,
+                    repTarget = repTarget,
+                    onShuffle = { onShuffle(workoutExercise.id) }
+                )
             }
 
             // Coach's note
@@ -241,6 +255,8 @@ private fun ActiveWorkoutContent(
 ) {
     val sessionIds = uiState.exercises.map { it.exercise.id }
 
+    KeepScreenOn()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -287,17 +303,29 @@ private fun ActiveWorkoutContent(
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
+        val listState = rememberLazyListState()
+        LaunchedEffect(uiState.currentStationIndex) {
+            if (uiState.currentStationIndex >= 0) {
+                listState.animateScrollToItem(uiState.currentStationIndex)
+            }
+        }
+
         LazyColumn(
+            state = listState,
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(uiState.exercises) { workoutExercise ->
+            itemsIndexed(uiState.exercises) { index, workoutExercise ->
                 val repTarget = RepPrescriber.prescribe(
                     exerciseId = workoutExercise.exercise.id,
                     format = uiState.format,
                     sessionIds = sessionIds
                 )
-                ExerciseStationCard(workoutExercise, repTarget)
+                ExerciseStationCard(
+                    workoutExercise = workoutExercise,
+                    repTarget = repTarget,
+                    isActive = index == uiState.currentStationIndex
+                )
             }
         }
 
@@ -315,13 +343,17 @@ private fun ActiveWorkoutContent(
 @Composable
 private fun ExerciseStationCard(
     workoutExercise: WorkoutExercise,
-    repTarget: String
+    repTarget: String,
+    isActive: Boolean = false,
+    onShuffle: (() -> Unit)? = null
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+            containerColor = if (isActive) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surfaceVariant
+        ),
+        border = if (isActive) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -335,6 +367,15 @@ private fun ExerciseStationCard(
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.weight(1f)
                 )
+                if (onShuffle != null) {
+                    IconButton(onClick = onShuffle) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = "Shuffle exercise",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
                 Text(
                     text = repTarget,
                     style = MaterialTheme.typography.titleMedium,
@@ -394,6 +435,18 @@ private fun ClockDisplay(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
             )
+        }
+    }
+}
+
+@Composable
+private fun KeepScreenOn() {
+    val context = LocalContext.current
+    DisposableEffect(Unit) {
+        val window = (context as? Activity)?.window
+        window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose {
+            window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
 }

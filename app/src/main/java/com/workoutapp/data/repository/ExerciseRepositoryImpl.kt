@@ -88,13 +88,15 @@ class ExerciseRepositoryImpl @Inject constructor(
     
     override suspend fun setUserExercises(exerciseIds: List<String>) {
         exerciseIds.forEach { exerciseId ->
-            exerciseDao.insertUserExercise(
-                UserExerciseEntity(
-                    id = UUID.randomUUID().toString(),
-                    exerciseId = exerciseId,
-                    isActive = true
+            if (!exerciseDao.isUserExerciseExists(exerciseId)) {
+                exerciseDao.insertUserExercise(
+                    UserExerciseEntity(
+                        id = UUID.randomUUID().toString(),
+                        exerciseId = exerciseId,
+                        isActive = true
+                    )
                 )
-            )
+            }
         }
     }
     

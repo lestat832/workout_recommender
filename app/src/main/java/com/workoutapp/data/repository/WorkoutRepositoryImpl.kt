@@ -63,7 +63,8 @@ class WorkoutRepositoryImpl @Inject constructor(
                 id = exerciseEntity.id,
                 workoutId = exerciseEntity.workoutId,
                 exercise = exercise.toDomain(),
-                sets = exerciseEntity.sets
+                sets = exerciseEntity.sets,
+                prescription = exerciseEntity.prescription
             )
         }
 
@@ -105,7 +106,8 @@ class WorkoutRepositoryImpl @Inject constructor(
             id = exercise.id,
             workoutId = workoutId,
             exerciseId = exercise.exercise.id,
-            sets = exercise.sets
+            sets = exercise.sets,
+            prescription = exercise.prescription
         )
         workoutDao.insertWorkoutExercises(listOf(entity))
     }
@@ -115,7 +117,8 @@ class WorkoutRepositoryImpl @Inject constructor(
             id = exercise.id,
             workoutId = exercise.workoutId,
             exerciseId = exercise.exercise.id,
-            sets = exercise.sets
+            sets = exercise.sets,
+            prescription = exercise.prescription
         )
         workoutDao.updateWorkoutExercise(entity)
     }
@@ -157,6 +160,11 @@ class WorkoutRepositoryImpl @Inject constructor(
         return workoutDao.getAllWorkouts().map { workouts ->
             workouts.map { it.toDomain(emptyList()) }
         }
+    }
+
+    override suspend fun getExerciseLastPerformedDates(): Map<String, Date> {
+        return workoutDao.getExerciseLastPerformedDates()
+            .associate { it.exerciseId to it.lastDate }
     }
 
     private fun WorkoutEntity.toDomain(exercises: List<WorkoutExercise>): Workout = Workout(

@@ -8,7 +8,6 @@ import com.workoutapp.domain.model.WorkoutFormat
 import com.workoutapp.domain.repository.ExerciseRepository
 import com.workoutapp.domain.repository.WorkoutRepository
 import javax.inject.Inject
-import kotlin.random.Random
 
 /**
  * Generates a Home Gym conditioning workout from the hand-curated
@@ -43,15 +42,39 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
         // a pace-yourself slog.
         const val AMRAP_DURATION_MINUTES = 15
         private const val MAX_RETRIES = 5
+        private const val MAX_TRX_PER_SESSION = 2
     }
 
     /**
-     * Picks a random conditioning format. Centralized so HomeViewModel and the
-     * use case share one source of randomness — lets the NextWorkoutCard
-     * display the same format the use case will actually generate.
+     * Predicts the next conditioning format by alternating from the last
+     * completed conditioning workout at this gym within the current week.
+     * Falls back to EMOM when no history exists or the last workout was
+     * in a prior week.
      */
-    fun predictNextFormat(): WorkoutFormat =
-        if (Random.nextBoolean()) WorkoutFormat.EMOM else WorkoutFormat.AMRAP
+    suspend fun predictNextFormat(gymId: Long): WorkoutFormat {
+        val lastWorkout = workoutRepository.getLastCompletedWorkoutByGym(gymId)
+        if (lastWorkout == null) return WorkoutFormat.EMOM
+
+        val weekStart = currentWeekStartMonday()
+        if (lastWorkout.date.before(weekStart)) return WorkoutFormat.EMOM
+
+        return when (lastWorkout.format) {
+            WorkoutFormat.EMOM -> WorkoutFormat.AMRAP
+            WorkoutFormat.AMRAP -> WorkoutFormat.EMOM
+            else -> WorkoutFormat.EMOM
+        }
+    }
+
+    private fun currentWeekStartMonday(): java.util.Date {
+        val cal = java.util.Calendar.getInstance()
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        cal.set(java.util.Calendar.MINUTE, 0)
+        cal.set(java.util.Calendar.SECOND, 0)
+        cal.set(java.util.Calendar.MILLISECOND, 0)
+        val daysFromMonday = (cal.get(java.util.Calendar.DAY_OF_WEEK) - java.util.Calendar.MONDAY + 7) % 7
+        cal.add(java.util.Calendar.DAY_OF_YEAR, -daysFromMonday)
+        return cal.time
+    }
 
     suspend operator fun invoke(
         gymId: Long,
@@ -60,7 +83,7 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
         // Skip-button flow: when the caller forces a format (user tapped skip
         // on the NextWorkoutCard), use it verbatim. Otherwise pick fresh via
         // predictNextFormat so this path stays consistent with the preview.
-        val format = formatOverride ?: predictNextFormat()
+        val format = formatOverride ?: predictNextFormat(gymId)
         val expectedCount = expectedStationCount(format)
 
         val existingFingerprints = workoutRepository
@@ -68,10 +91,12 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
             .map { fingerprint(it.exercises.map { e -> e.exercise.id }) }
             .toSet()
 
-        var candidateIds = pickMovementIds(format)
+        val lastPerformedDates = workoutRepository.getExerciseLastPerformedDates()
+
+        var candidateIds = pickMovementIds(format, lastPerformedDates)
         var attempts = 0
         while (fingerprint(candidateIds) in existingFingerprints && attempts < MAX_RETRIES) {
-            candidateIds = pickMovementIds(format)
+            candidateIds = pickMovementIds(format, lastPerformedDates)
             attempts++
         }
 
@@ -116,7 +141,7 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
      * strength slots. Prevents brutal all-heavy metcons where a 60s clock
      * across three compound lifts degrades form by round 3-4.
      */
-    private fun pickMovementIds(format: WorkoutFormat): List<String> {
+    private fun pickMovementIds(format: WorkoutFormat, lastPerformedDates: Map<String, java.util.Date>): List<String> {
         val byBucket = HomeGymMovementCatalog.byBucket()
         val cardio = byBucket[Bucket.CARDIO].orEmpty()
         val lower = byBucket[Bucket.LOWER_BODY].orEmpty()
@@ -127,29 +152,49 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
 
         return when (format) {
             WorkoutFormat.EMOM -> {
-                val legsPick = lower.random()
+                val legsPick = ExerciseFreshness.weightedRandom(lower, weightFn = {
+                    ExerciseFreshness.weight(it.id, lastPerformedDates)
+                }) ?: lower.random()
                 // After each strength pick, if a heavy has already been used
                 // filter the next pool to exclude heavies. `.ifEmpty { pool }`
                 // is a safety net for hypothetical futures where every pull
                 // or push is heavy — today only 1 of 5 is, so the filter
                 // never empties, but the fallback keeps the generator safe.
                 val pullPool = if (legsPick.isHeavy()) pull.filterNot { it.isHeavy() } else pull
-                val pullPick = pullPool.ifEmpty { pull }.random()
+                val pullCandidates = pullPool.ifEmpty { pull }
+                val pullPick = ExerciseFreshness.weightedRandom(pullCandidates, weightFn = {
+                    ExerciseFreshness.weight(it.id, lastPerformedDates)
+                }) ?: pullCandidates.random()
                 val heavyUsed = legsPick.isHeavy() || pullPick.isHeavy()
                 val pushPool = if (heavyUsed) push.filterNot { it.isHeavy() } else push
-                val pushPick = pushPool.ifEmpty { push }.random()
-                listOf(
-                    legsPick.id,
-                    pullPick.id,
-                    pushPick.id,
-                    (core + conditioning).random().id
-                )
+                val pushCandidates = pushPool.ifEmpty { push }
+                val pushPick = ExerciseFreshness.weightedRandom(pushCandidates, weightFn = {
+                    ExerciseFreshness.weight(it.id, lastPerformedDates)
+                }) ?: pushCandidates.random()
+                val closerPool = core + conditioning
+                val closerPick = ExerciseFreshness.weightedRandom(closerPool, weightFn = {
+                    ExerciseFreshness.weight(it.id, lastPerformedDates)
+                }) ?: closerPool.random()
+                val picks = mutableListOf(legsPick, pullPick, pushPick, closerPick)
+                capTrx(picks, listOf(lower, pull, push, core + conditioning))
+                picks.map { it.id }
             }
-            WorkoutFormat.AMRAP -> listOf(
-                cardio.random().id,
-                (lower + pull + push).random().id,
-                (core + conditioning).random().id
-            )
+            WorkoutFormat.AMRAP -> {
+                val cardioPick = ExerciseFreshness.weightedRandom(cardio, weightFn = {
+                    ExerciseFreshness.weight(it.id, lastPerformedDates)
+                }) ?: cardio.random()
+                val strengthPool = lower + pull + push
+                val strengthPick = ExerciseFreshness.weightedRandom(strengthPool, weightFn = {
+                    ExerciseFreshness.weight(it.id, lastPerformedDates)
+                }) ?: strengthPool.random()
+                val closerPool = core + conditioning
+                val closerPick = ExerciseFreshness.weightedRandom(closerPool, weightFn = {
+                    ExerciseFreshness.weight(it.id, lastPerformedDates)
+                }) ?: closerPool.random()
+                val picks = mutableListOf(cardioPick, strengthPick, closerPick)
+                capTrx(picks, listOf(cardio, lower + pull + push, core + conditioning))
+                picks.map { it.id }
+            }
             else -> error("Unsupported conditioning format: $format")
         }
     }
@@ -161,6 +206,27 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
      */
     private fun HomeGymMovementCatalog.Movement.isHeavy(): Boolean =
         id.startsWith("custom_heavy_")
+
+    private fun HomeGymMovementCatalog.Movement.isTrx(): Boolean =
+        equipment == "Suspension Trainer"
+
+    /**
+     * Enforces max 2 TRX exercises per session to avoid excessive strap
+     * adjustment overhead within 60-second EMOM windows. Re-rolls excess
+     * TRX picks from the same bucket pool. If no non-TRX alternative
+     * exists in a bucket, keeps the original pick.
+     */
+    private fun capTrx(
+        picks: MutableList<HomeGymMovementCatalog.Movement>,
+        bucketPools: List<List<HomeGymMovementCatalog.Movement>>
+    ) {
+        val trxIndices = picks.indices.filter { picks[it].isTrx() }
+        if (trxIndices.size <= MAX_TRX_PER_SESSION) return
+        for (i in trxIndices.drop(MAX_TRX_PER_SESSION)) {
+            val pool = bucketPools[i].filterNot { it.isTrx() || it.id in picks.map { p -> p.id } }
+            if (pool.isNotEmpty()) picks[i] = pool.random()
+        }
+    }
 
     private fun fingerprint(ids: List<String>): String = ids.sorted().joinToString(",")
 }

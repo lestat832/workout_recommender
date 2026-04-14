@@ -45,6 +45,8 @@ import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.ui.platform.LocalContext
 import android.content.Context
+import android.content.Intent
+import androidx.core.content.FileProvider
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.LaunchedEffect
@@ -75,6 +77,7 @@ fun HomeScreen(
     val nextWorkoutType by viewModel.nextWorkoutType.collectAsState()
     val selectedGymStyle by viewModel.selectedGymStyle.collectAsState()
     val nextWorkoutFormat by viewModel.nextWorkoutFormat.collectAsState()
+    val blockIndicator by viewModel.blockIndicator.collectAsState()
 
     var showDebugMenu by remember { mutableStateOf(false) }
     var showSettingsMenu by remember { mutableStateOf(false) }
@@ -104,6 +107,27 @@ fun HomeScreen(
         }
     )
     
+    // Handle export
+    val exportCsv by viewModel.exportCsv.collectAsState()
+    LaunchedEffect(exportCsv) {
+        exportCsv?.let { csv ->
+            val file = java.io.File(context.cacheDir, "fortis_lupus_workouts.csv")
+            file.writeText(csv)
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/csv"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(shareIntent, "Export Workouts"))
+            viewModel.clearExport()
+        }
+    }
+
     // Handle import state changes
     LaunchedEffect(importState) {
         when (importState) {
@@ -199,6 +223,13 @@ fun HomeScreen(
                                 }
                             )
                         }
+                        DropdownMenuItem(
+                            text = { Text("Export Workouts") },
+                            onClick = {
+                                showSettingsMenu = false
+                                viewModel.exportWorkouts()
+                            }
+                        )
                     }
                 }
             )
@@ -403,6 +434,7 @@ fun HomeScreen(
                 nextWorkoutFormat = nextWorkoutFormat,
                 gymStyle = selectedGymStyle,
                 dateOffset = testDateOffset,
+                blockIndicator = blockIndicator,
                 onTap = {
                     val id = selectedGymId
                     val style = selectedGymStyle
@@ -574,6 +606,7 @@ fun NextWorkoutCard(
     nextWorkoutFormat: WorkoutFormat?,
     gymStyle: GymWorkoutStyle?,
     dateOffset: Int = 0,
+    blockIndicator: String? = null,
     onTap: () -> Unit = {},
     onSkip: () -> Unit = {}
 ) {
@@ -643,6 +676,15 @@ fun NextWorkoutCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
             )
+
+            if (blockIndicator != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = blockIndicator,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.7f)
+                )
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -759,8 +801,13 @@ fun WorkoutHistoryCard(workout: Workout, viewModel: HomeViewModel, onDelete: () 
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            val roundsText = if (workout.format == WorkoutFormat.EMOM) {
+                                "${workout.completedRounds} rounds \u00d7 ${workout.exercises.size} stations"
+                            } else {
+                                "${workout.completedRounds} rounds"
+                            }
                             Text(
-                                text = "${workout.completedRounds} rounds",
+                                text = roundsText,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Medium
@@ -808,7 +855,7 @@ fun ExerciseDetailRow(workoutExercise: com.workoutapp.domain.model.WorkoutExerci
         .filter { it.completed }
         .sumOf { (it.weight * it.reps).toDouble() }
         .toFloat()
-    
+
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -822,7 +869,14 @@ fun ExerciseDetailRow(workoutExercise: com.workoutapp.domain.model.WorkoutExerci
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium
             )
-            if (exerciseTotal > 0) {
+            if (workoutExercise.prescription != null) {
+                Text(
+                    text = workoutExercise.prescription,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium
+                )
+            } else if (exerciseTotal > 0) {
                 Text(
                     text = "${String.format("%,.0f", exerciseTotal)} lbs",
                     style = MaterialTheme.typography.bodySmall,
@@ -831,26 +885,35 @@ fun ExerciseDetailRow(workoutExercise: com.workoutapp.domain.model.WorkoutExerci
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(4.dp))
-        
-        workoutExercise.sets.forEachIndexed { index, set ->
-            if (set.completed) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Text(
-                        text = "Set ${index + 1}:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "${set.weight.toInt()} lbs × ${set.reps} reps",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+
+        if (workoutExercise.prescription != null) {
+            Text(
+                text = workoutExercise.exercise.equipment,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 16.dp)
+            )
+        } else {
+            workoutExercise.sets.forEachIndexed { index, set ->
+                if (set.completed) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = "Set ${index + 1}:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "${set.weight.toInt()} lbs \u00d7 ${set.reps} reps",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
             }
         }

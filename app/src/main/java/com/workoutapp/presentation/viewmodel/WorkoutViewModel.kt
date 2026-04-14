@@ -6,6 +6,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.workoutapp.domain.model.*
 import com.workoutapp.domain.repository.ExerciseRepository
+import com.workoutapp.domain.repository.GymRepository
 import com.workoutapp.domain.repository.WorkoutRepository
 import android.util.Log
 import com.workoutapp.domain.usecase.DeleteWorkoutUseCase
@@ -38,7 +39,8 @@ class WorkoutViewModel @Inject constructor(
     private val profileRepository: TrainingProfileRepository,
     private val stravaSyncManager: StravaSyncManager,
     private val deleteWorkoutUseCase: DeleteWorkoutUseCase,
-    private val blockStateRepository: com.workoutapp.domain.repository.BlockStateRepository
+    private val blockStateRepository: com.workoutapp.domain.repository.BlockStateRepository,
+    private val gymRepository: GymRepository
 ) : AndroidViewModel(application) {
 
     private val gymId: Long? = savedStateHandle["gymId"]
@@ -214,42 +216,39 @@ class WorkoutViewModel @Inject constructor(
     
     fun shuffleExercise(exerciseId: String) {
         viewModelScope.launch {
+            val workout = currentWorkout ?: return@launch
             val currentExercise = _uiState.value.exercises.find { it.id == exerciseId } ?: return@launch
             val currentMuscleGroups = currentExercise.exercise.muscleGroups
-            
-            // Get all exercises that target the same muscle groups
-            val allExercises = exerciseRepository.getAllExercises().firstOrNull() ?: emptyList()
-            val activeExerciseIds = exerciseRepository.getActiveUserExercises().firstOrNull() ?: emptyList()
-            
-            // Filter exercises that share at least one muscle group with current exercise
-            val sameMuscleFroupExercises = allExercises.filter { exercise ->
-                exercise.id in activeExerciseIds && 
-                exercise.muscleGroups.any { it in currentMuscleGroups }
+
+            // Category pool: push/pull taxonomy (parity with GenerateWorkoutUseCase).
+            // Prevents cross-side leaks regardless of muscle-group tagging.
+            val categories = when (workout.type) {
+                WorkoutType.PUSH -> listOf(ExerciseCategory.STRENGTH_PUSH)
+                WorkoutType.PULL -> listOf(ExerciseCategory.STRENGTH_PULL, ExerciseCategory.STRENGTH_LEGS)
             }
-            
-            // Get exercises done in the last week
-            val recentExerciseIds = workoutRepository.getExerciseIdsFromLastWeek()
-            
-            // Filter out current exercises and recent exercises
+            val categoryPool = exerciseRepository.getUserActiveExercisesByCategories(categories)
+
+            // Equipment filter: only exercises performable at the current gym.
+            val gym = workout.gymId?.let { gymRepository.getGymById(it) } ?: gymRepository.getDefaultGym()
+            val equipmentCompatible = categoryPool.filter { exercise ->
+                gym?.let { g -> EquipmentType.canPerformExercise(exercise.equipment, g.equipmentList) } ?: true
+            }
+
+            // Similarity: share >=1 muscle group with swapped exercise, and not already in workout.
             val currentExerciseIds = _uiState.value.exercises.map { it.exercise.id }
-            val availableExercises = sameMuscleFroupExercises.filter { exercise ->
-                exercise.id !in currentExerciseIds && exercise.id !in recentExerciseIds
+            val similar = equipmentCompatible.filter { exercise ->
+                exercise.id !in currentExerciseIds &&
+                    exercise.muscleGroups.any { it in currentMuscleGroups }
             }
-            
-            if (availableExercises.isEmpty()) {
-                // If no alternatives, try without recent exercise filter
-                val lessRestrictiveExercises = sameMuscleFroupExercises.filter { exercise ->
-                    exercise.id !in currentExerciseIds
-                }
-                
-                if (lessRestrictiveExercises.isNotEmpty()) {
-                    val newExercise = lessRestrictiveExercises.random()
-                    replaceExercise(exerciseId, newExercise)
-                }
-                // If still no alternatives, do nothing
-            } else {
-                val newExercise = availableExercises.random()
-                replaceExercise(exerciseId, newExercise)
+
+            // Softened cooldown: prefer non-recent, fall back to full similar pool when
+            // too few candidates. Keeps variety without forcing a hard 7-day wall.
+            val recentExerciseIds = workoutRepository.getExerciseIdsFromLastWeek()
+            val preferred = similar.filter { it.id !in recentExerciseIds }
+            val pool = if (preferred.size >= 5) preferred else similar
+
+            if (pool.isNotEmpty()) {
+                replaceExercise(exerciseId, pool.random())
             }
         }
     }

@@ -211,7 +211,22 @@ class WorkoutViewModel @Inject constructor(
         }
         _uiState.value = _uiState.value.copy(exercises = exercises)
     }
-    
+
+    /**
+     * Phase 4a: record user-reported reps-in-reserve for a strength exercise.
+     * State-only; persistence happens via the existing saveWorkoutProgress /
+     * completeWorkout pipeline which writes all exercises via
+     * addExerciseToWorkout (Room @Insert with REPLACE). Pass null to clear a
+     * previously-selected value.
+     */
+    fun setRir(exerciseId: String, rir: Int?) {
+        require(rir == null || rir in 0..5) { "RIR must be null or 0..5" }
+        val exercises = _uiState.value.exercises.map { exercise ->
+            if (exercise.id == exerciseId) exercise.copy(rir = rir) else exercise
+        }
+        _uiState.value = _uiState.value.copy(exercises = exercises)
+    }
+
     fun shuffleExercise(exerciseId: String) {
         viewModelScope.launch {
             val currentExercise = _uiState.value.exercises.find { it.id == exerciseId } ?: return@launch

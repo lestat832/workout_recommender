@@ -12,6 +12,16 @@ data class ExerciseLastPerformed(
     val lastDate: Date
 )
 
+data class CompletedWorkoutSummaryRow(
+    val id: String,
+    val date: Date,
+    val format: String,
+    val durationMinutes: Int?,
+    // Nested separators: '|' between workouts' exercises, ',' within a single exercise's
+    // muscleGroups (Converters.kt convention). Repository splits on both.
+    val muscleGroupsRaw: String
+)
+
 @Dao
 interface WorkoutDao {
     @Insert
@@ -95,4 +105,24 @@ interface WorkoutDao {
         GROUP BY we.exerciseId
     """)
     suspend fun getExerciseLastPerformedDates(): List<ExerciseLastPerformed>
+
+    /**
+     * Returns completed workouts on or after `sinceMillis` with exercise muscle groups
+     * concatenated with '|'. Used by FatigueAwareness via the repository.
+     */
+    @Query("""
+        SELECT
+            w.id AS id,
+            w.date AS date,
+            w.format AS format,
+            w.durationMinutes AS durationMinutes,
+            GROUP_CONCAT(e.muscleGroups, '|') AS muscleGroupsRaw
+        FROM workouts w
+        INNER JOIN workout_exercises we ON we.workoutId = w.id
+        INNER JOIN exercises e ON e.id = we.exerciseId
+        WHERE w.status = 'COMPLETED' AND w.date >= :sinceMillis
+        GROUP BY w.id
+        ORDER BY w.date DESC
+    """)
+    suspend fun getCompletedWorkoutSummariesSince(sinceMillis: Long): List<CompletedWorkoutSummaryRow>
 }

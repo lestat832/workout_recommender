@@ -1,5 +1,6 @@
 package com.workoutapp.domain.repository
 
+import com.workoutapp.domain.model.CompletedWorkoutSummary
 import com.workoutapp.domain.model.Workout
 import com.workoutapp.domain.model.WorkoutExercise
 import com.workoutapp.domain.model.WorkoutStatus
@@ -25,5 +26,5 @@ interface WorkoutRepository {
     suspend fun getInProgressStrengthWorkout(gymId: Long): Workout?
     suspend fun getInProgressConditioningWorkout(gymId: Long): Workout?
     suspend fun getExerciseLastPerformedDates(): Map<String, Date>
-    suspend fun getCompletedWorkoutSummariesSince(since: java.util.Date): List<com.workoutapp.domain.model.CompletedWorkoutSummary>
+    suspend fun getCompletedWorkoutSummariesSince(since: Date): List<CompletedWorkoutSummary>
 }

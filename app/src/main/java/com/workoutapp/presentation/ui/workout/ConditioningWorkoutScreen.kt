@@ -51,6 +51,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.workoutapp.domain.model.WorkoutExercise
 import com.workoutapp.domain.model.WorkoutFormat
 import com.workoutapp.domain.usecase.RepPrescriber
+import com.workoutapp.presentation.ui.components.FatigueWarningCaption
 import com.workoutapp.presentation.viewmodel.ConditioningWorkoutViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -193,6 +194,9 @@ private fun PreviewContent(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            item {
+                FatigueWarningCaption(warning = uiState.fatigueWarning)
+            }
             items(uiState.exercises) { workoutExercise ->
                 val repTarget = RepPrescriber.prescribe(
                     exerciseId = workoutExercise.exercise.id,
@@ -315,6 +319,9 @@ private fun ActiveWorkoutContent(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            item {
+                FatigueWarningCaption(warning = uiState.fatigueWarning)
+            }
             itemsIndexed(uiState.exercises) { index, workoutExercise ->
                 val repTarget = RepPrescriber.prescribe(
                     exerciseId = workoutExercise.exercise.id,

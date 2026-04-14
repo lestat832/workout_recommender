@@ -25,4 +25,5 @@ interface WorkoutRepository {
     suspend fun getInProgressStrengthWorkout(gymId: Long): Workout?
     suspend fun getInProgressConditioningWorkout(gymId: Long): Workout?
     suspend fun getExerciseLastPerformedDates(): Map<String, Date>
+    suspend fun getCompletedWorkoutSummariesSince(since: java.util.Date): List<com.workoutapp.domain.model.CompletedWorkoutSummary>
 }

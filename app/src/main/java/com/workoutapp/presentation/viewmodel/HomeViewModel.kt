@@ -39,7 +39,8 @@ class HomeViewModel @Inject constructor(
     private val importWorkoutUseCase: ImportWorkoutUseCase,
     private val importDebugDataUseCase: ImportDebugDataUseCase,
     private val deleteWorkoutUseCase: DeleteWorkoutUseCase,
-    private val exportWorkoutsUseCase: ExportWorkoutsUseCase
+    private val exportWorkoutsUseCase: ExportWorkoutsUseCase,
+    private val blockStateRepository: com.workoutapp.domain.repository.BlockStateRepository
 ) : ViewModel() {
 
     private val _lastWorkout = MutableStateFlow<Workout?>(null)
@@ -71,6 +72,9 @@ class HomeViewModel @Inject constructor(
     // workout completion, skip() flips it in place.
     private val _nextWorkoutFormat = MutableStateFlow<WorkoutFormat?>(null)
     val nextWorkoutFormat: StateFlow<WorkoutFormat?> = _nextWorkoutFormat.asStateFlow()
+
+    private val _blockIndicator = MutableStateFlow<String?>(null)
+    val blockIndicator: StateFlow<String?> = _blockIndicator.asStateFlow()
 
     init {
         loadLastWorkout()
@@ -139,12 +143,22 @@ class HomeViewModel @Inject constructor(
                 _nextWorkoutFormat.value =
                     generateConditioningWorkoutUseCase.predictNextFormat(gymId)
             }
+            _blockIndicator.value = null
             return
         }
         // Strength gym — clear any stale format from a prior CONDITIONING gym.
         _nextWorkoutFormat.value = null
         viewModelScope.launch {
             _nextWorkoutType.value = generateWorkoutUseCase.predictNextType(gymId)
+            val (blockStart, blockNumber) = blockStateRepository.getState(gymId)
+            val lastWorkout = workoutRepository.getLastCompletedWorkoutByGym(gymId)
+            val state = com.workoutapp.domain.usecase.BlockPeriodization.computeState(
+                blockStartDate = blockStart,
+                blockNumber = blockNumber,
+                lastWorkoutDate = lastWorkout?.date,
+                plateauedExerciseCount = 0
+            )
+            _blockIndicator.value = state.phaseLabel
         }
     }
 

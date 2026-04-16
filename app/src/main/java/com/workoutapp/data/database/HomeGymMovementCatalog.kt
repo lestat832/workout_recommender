@@ -81,6 +81,20 @@ object HomeGymMovementCatalog {
             equipment = "Bodyweight",
             instructions = "Run in place bringing knees to hip height. Stay on the balls of your feet."
         ),
+        Movement(
+            id = "custom_bag_rounds",
+            name = "Bag Rounds",
+            bucket = Bucket.CARDIO,
+            equipment = "Punching Bag",
+            instructions = "Work the bag at a steady pace mixing jabs, crosses, hooks, and uppercuts. Stay on the balls of your feet and keep your hands up between combos. Maintain rhythm over power."
+        ),
+        Movement(
+            id = "custom_bag_combos",
+            name = "Bag Combos",
+            bucket = Bucket.CARDIO,
+            equipment = "Punching Bag",
+            instructions = "Throw structured punch combinations: 1-2 (jab-cross), 1-2-3 (jab-cross-hook), 1-2-5-2 (jab-cross-uppercut-cross). Reset stance between combos. Focus on clean technique and snap."
+        ),
 
         // ── LOWER BODY STRENGTH ─────────────────────────────────────────────
         Movement(
@@ -180,6 +194,20 @@ object HomeGymMovementCatalog {
             bucket = Bucket.LOWER_BODY,
             equipment = "Dumbbell",
             instructions = "Hold a dumbbell in each hand at your sides. Step forward into a lunge, drop the back knee toward the floor, drive through the front heel to push back to start. Alternate legs."
+        ),
+        Movement(
+            id = "custom_slider_reverse_lunge",
+            name = "Slider Reverse Lunge",
+            bucket = Bucket.LOWER_BODY,
+            equipment = "Sliders",
+            instructions = "Stand with one foot on a slider. Slide the foot back into a reverse lunge, dropping the back knee toward the floor. Drive through the front heel to return to standing. Alternate legs."
+        ),
+        Movement(
+            id = "custom_slider_hamstring_curl",
+            name = "Slider Hamstring Curl",
+            bucket = Bucket.LOWER_BODY,
+            equipment = "Sliders",
+            instructions = "Lie on your back with both heels on sliders, arms flat on the floor. Press the hips up into a bridge, then curl the heels toward the glutes by contracting the hamstrings. Extend back out under control."
         ),
         Movement(
             id = "custom_kb_swing",
@@ -377,6 +405,20 @@ object HomeGymMovementCatalog {
             instructions = "Feet in the foot cradles in a plank. Pull the knees toward one elbow, contracting the obliques. Extend back to plank and alternate sides."
         ),
         Movement(
+            id = "custom_slider_pike",
+            name = "Slider Pike",
+            bucket = Bucket.CORE,
+            equipment = "Sliders",
+            instructions = "Start in a plank with both feet on sliders. Pike the hips up toward the ceiling while keeping legs straight, sliding the feet toward the hands. Return to plank under control."
+        ),
+        Movement(
+            id = "custom_slider_body_saw",
+            name = "Slider Body Saw",
+            bucket = Bucket.CORE,
+            equipment = "Sliders",
+            instructions = "Start in a forearm plank with both feet on sliders. Push the body forward by extending the shoulders, then pull back to the start. Keep the core braced throughout. The motion is small but intense."
+        ),
+        Movement(
             id = "custom_kb_windmill",
             name = "KB Windmill",
             bucket = Bucket.CORE,
@@ -406,6 +448,13 @@ object HomeGymMovementCatalog {
         ),
 
         // ── CONDITIONING / BODYWEIGHT ───────────────────────────────────────
+        Movement(
+            id = "custom_slider_mountain_climber",
+            name = "Slider Mountain Climber",
+            bucket = Bucket.CONDITIONING_BODYWEIGHT,
+            equipment = "Sliders",
+            instructions = "Start in a plank with both feet on sliders. Drive the knees alternately toward the chest, sliding the feet along the floor. Keep the hips stable and core braced. The sliders make the movement smoother and more core-intensive."
+        ),
         Movement(
             id = "custom_mountain_climbers",
             name = "Mountain Climbers",

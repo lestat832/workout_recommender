@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
         MuscleGroupProfileEntity::class,
         GlobalProfileEntity::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = false
 )
 @TypeConverters(DateConverter::class, SetListConverter::class, StringListConverter::class, MuscleGroupListConverter::class)
@@ -141,6 +141,22 @@ abstract class WorkoutDatabase : RoomDatabase() {
                     INSERT INTO gyms (name, equipmentList, isDefault, createdAt)
                     VALUES ('Home Gym', '$allEquipment', 1, $currentTime)
                 """)
+            }
+        }
+
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Add Kettlebell, Sliders, and Punching Bag to Home Gym equipment.
+                // KB and Sliders were in the catalog but missing from the DB string;
+                // Punching Bag is a new piece of equipment.
+                val homeEquipment = "Dumbbell,Bodyweight,Suspension Trainer,Medicine Ball,Ab Wheel,Indoor Rower,Indoor Bike,Jump Rope,Kettlebell,Sliders,Punching Bag"
+                db.execSQL(
+                    """
+                    UPDATE gyms
+                    SET equipmentList = '$homeEquipment'
+                    WHERE name = 'Home Gym'
+                    """
+                )
             }
         }
 
@@ -289,7 +305,7 @@ abstract class WorkoutDatabase : RoomDatabase() {
                     WorkoutDatabase::class.java,
                     "workout_database"
                 )
-                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
                     // Allow destructive recovery only for hypothetical pre-v3 installs
                     // (the project has no committed v1/v2 migrations and has shipped
                     // v3+ since its earliest tracked schema). Any unhandled v3+ upgrade
@@ -303,7 +319,7 @@ abstract class WorkoutDatabase : RoomDatabase() {
                             // in the app startup to avoid blocking database creation.
                             val now = System.currentTimeMillis()
                             val lmuEquipment = "Barbell,Dumbbell,Cable,Machine,Bodyweight,Bench,Smith Machine,Kettlebell,Resistance Band,None,Other"
-                            val homeEquipment = "Dumbbell,Bodyweight,Suspension Trainer,Medicine Ball,Ab Wheel,Indoor Rower,Indoor Bike,Jump Rope"
+                            val homeEquipment = "Dumbbell,Bodyweight,Suspension Trainer,Medicine Ball,Ab Wheel,Indoor Rower,Indoor Bike,Jump Rope,Kettlebell,Sliders,Punching Bag"
                             db.execSQL(
                                 """
                                 INSERT INTO gyms (name, equipmentList, isDefault, createdAt, workoutStyle)

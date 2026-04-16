@@ -21,6 +21,8 @@ object EquipmentType {
     const val INDOOR_ROWER = "Indoor Rower"
     const val INDOOR_BIKE = "Indoor Bike"
     const val JUMP_ROPE = "Jump Rope"
+    const val SLIDERS = "Sliders"
+    const val PUNCHING_BAG = "Punching Bag"
     const val NONE = "None"
     const val OTHER = "Other"
 
@@ -122,6 +124,18 @@ object EquipmentType {
         "Skipping Rope"
     )
 
+    val SLIDERS_VARIANTS = setOf(
+        "Sliders",
+        "Sliding Discs",
+        "Gliding Discs"
+    )
+
+    val PUNCHING_BAG_VARIANTS = setOf(
+        "Punching Bag",
+        "Heavy Bag",
+        "Boxing Bag"
+    )
+
     /**
      * All equipment types available for gym setup.
      * Displayed in this order in the UI.
@@ -142,6 +156,8 @@ object EquipmentType {
         INDOOR_ROWER,
         INDOOR_BIKE,
         JUMP_ROPE,
+        SLIDERS,
+        PUNCHING_BAG,
         NONE,
         OTHER
     )
@@ -178,6 +194,8 @@ object EquipmentType {
             INDOOR_ROWER -> exerciseEquipment in INDOOR_ROWER_VARIANTS
             INDOOR_BIKE -> exerciseEquipment in INDOOR_BIKE_VARIANTS
             JUMP_ROPE -> exerciseEquipment in JUMP_ROPE_VARIANTS
+            SLIDERS -> exerciseEquipment in SLIDERS_VARIANTS
+            PUNCHING_BAG -> exerciseEquipment in PUNCHING_BAG_VARIANTS
             SMITH_MACHINE -> exerciseEquipment == "Smith Machine"
             NONE -> exerciseEquipment in BODYWEIGHT_VARIANTS
             OTHER -> false // "Other" doesn't match anything by default

@@ -69,6 +69,8 @@ class InitializeExercisesUseCase @Inject constructor(
         private const val KEY_HOME_GYM_EMOM_20260413_SEEDED = "home_gym_emom_20260413_seeded"
         private const val KEY_HOME_GYM_AMRAP_20260414_SEEDED = "home_gym_amrap_20260414_seeded"
         private const val KEY_LMU_PULL_20260414_SEEDED = "lmu_pull_20260414_seeded"
+        private const val KEY_HOME_GYM_EMOM_20260415_SEEDED = "home_gym_emom_20260415_seeded"
+        private const val KEY_HOME_GYM_POOL_EXPANSION_4_SEEDED = "home_gym_pool_expansion_4_seeded"
 
         // Ids added after the initial Home Gym catalog seed. Existing installs
         // need a one-shot insert + activation for these; fresh installs pick
@@ -123,6 +125,20 @@ class InitializeExercisesUseCase @Inject constructor(
             "custom_med_ball_sit_up",
             "custom_reverse_lunges",
             "custom_wall_ball_squats"
+        )
+
+        // Fourth pool expansion — punching bag (2) and slider (5) exercises.
+        // Bag exercises go to CARDIO bucket (AMRAP only). Slider exercises
+        // provide TRX-free alternatives across LOWER_BODY, CORE, and
+        // CONDITIONING_BODYWEIGHT buckets.
+        private val POOL_EXPANSION_4_IDS = setOf(
+            "custom_bag_rounds",
+            "custom_bag_combos",
+            "custom_slider_reverse_lunge",
+            "custom_slider_hamstring_curl",
+            "custom_slider_mountain_climber",
+            "custom_slider_pike",
+            "custom_slider_body_saw"
         )
     }
 
@@ -259,6 +275,17 @@ class InitializeExercisesUseCase @Inject constructor(
 
             safeRun(KEY_LMU_PULL_20260414_SEEDED) {
                 seedLmuPull20260414()
+            }
+
+            safeRun(KEY_HOME_GYM_POOL_EXPANSION_4_SEEDED) {
+                val newExercises = HomeGymCatalogSeeder.buildExercises()
+                    .filter { it.id in POOL_EXPANSION_4_IDS }
+                exerciseRepository.insertExercises(newExercises)
+                exerciseRepository.setUserExercises(POOL_EXPANSION_4_IDS.toList())
+            }
+
+            safeRun(KEY_HOME_GYM_EMOM_20260415_SEEDED) {
+                seedHomeGymEmom20260415()
             }
 
             Result.success(null)
@@ -611,6 +638,52 @@ class InitializeExercisesUseCase @Inject constructor(
         workoutRepository.addExerciseToWorkout(workoutId, squatCurlWe)
         workoutRepository.addExerciseToWorkout(workoutId, isoHighRowWe)
         workoutRepository.addExerciseToWorkout(workoutId, hammerCurlWe)
+
+        profileComputerUseCase.recomputeFullProfile()
+    }
+
+    private suspend fun seedHomeGymEmom20260415() {
+        val homeGym = gymRepository.getAllGyms().firstOrNull { it.name == "Home Gym" } ?: return
+
+        val date = Calendar.getInstance().apply {
+            set(2026, 3, 15, 6, 0, 0) // April 15 2026, 6am
+            set(Calendar.MILLISECOND, 0)
+        }.time
+
+        val exerciseIds = listOf(
+            "custom_trx_hamstring_curl",
+            "custom_pull_up",
+            "custom_pair_db_push_press",
+            "custom_plank"
+        )
+        val resolved = exerciseIds.mapNotNull { exerciseRepository.getExerciseById(it) }
+        if (resolved.size != exerciseIds.size) return
+
+        val prescriptions = listOf("\u00d7 10-15", "\u00d7 5-6", "\u00d7 8-10", "30-40 sec")
+
+        val workoutId = "home_gym_seed_emom_20260415"
+        val workout = Workout(
+            id = workoutId,
+            date = date,
+            type = WorkoutType.PULL,
+            status = WorkoutStatus.COMPLETED,
+            gymId = homeGym.id,
+            format = WorkoutFormat.EMOM,
+            durationMinutes = 20,
+            completedRounds = 5
+        )
+        workoutRepository.createWorkout(workout)
+
+        resolved.forEachIndexed { index, exercise ->
+            val we = WorkoutExercise(
+                id = UUID.randomUUID().toString(),
+                workoutId = workoutId,
+                exercise = exercise,
+                sets = listOf(Set(reps = 0, weight = 0f, completed = true)),
+                prescription = prescriptions[index]
+            )
+            workoutRepository.addExerciseToWorkout(workoutId, we)
+        }
 
         profileComputerUseCase.recomputeFullProfile()
     }

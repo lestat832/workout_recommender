@@ -47,12 +47,14 @@ object RepPrescriber {
      * [prescribe], which surfaces the gap in UI review.
      */
     private val classifications: Map<String, Classification> = mapOf(
-        // ── CARDIO (5) — all T7 ─────────────────────────────────────────
+        // ── CARDIO (7) — all T7 ─────────────────────────────────────────
         "custom_row_200_400m" to Classification(Tier.T7),
         "custom_jump_rope_40_60s" to Classification(Tier.T7),
         "custom_burpees" to Classification(Tier.T7),
         "custom_jumping_jacks" to Classification(Tier.T7),
         "custom_high_knees" to Classification(Tier.T7),
+        "custom_bag_rounds" to Classification(Tier.T7),
+        "custom_bag_combos" to Classification(Tier.T7),
 
         // ── LOWER BODY (16) ─────────────────────────────────────────────
         "custom_heavy_db_goblet_squat" to Classification(Tier.T1),
@@ -71,6 +73,8 @@ object RepPrescriber {
         "custom_pair_db_forward_lunge" to Classification(Tier.T2, unilateral = true),
         "custom_kb_swing" to Classification(Tier.T2),
         "custom_kb_single_leg_deadlift" to Classification(Tier.T2, unilateral = true),
+        "custom_slider_reverse_lunge" to Classification(Tier.T4, unilateral = true),
+        "custom_slider_hamstring_curl" to Classification(Tier.T4),
 
         // ── UPPER PULL (7) ──────────────────────────────────────────────
         "custom_pull_up" to Classification(Tier.T3),
@@ -106,6 +110,8 @@ object RepPrescriber {
         "custom_med_ball_russian_twist" to Classification(Tier.T6),
         "custom_med_ball_woodchopper" to Classification(Tier.T6, unilateral = true),
         "custom_med_ball_sit_up" to Classification(Tier.T6),
+        "custom_slider_pike" to Classification(Tier.T6),
+        "custom_slider_body_saw" to Classification(Tier.T6),
 
         // ── CONDITIONING / BODYWEIGHT (13) ──────────────────────────────
         "custom_mountain_climbers" to Classification(Tier.T4),
@@ -120,7 +126,8 @@ object RepPrescriber {
         "custom_reverse_lunges" to Classification(Tier.T4),
         "custom_kb_clean" to Classification(Tier.T2, unilateral = true),
         "custom_kb_snatch" to Classification(Tier.T2, unilateral = true),
-        "custom_wall_ball_squats" to Classification(Tier.T4)
+        "custom_wall_ball_squats" to Classification(Tier.T4),
+        "custom_slider_mountain_climber" to Classification(Tier.T4)
     )
 
     /**
@@ -181,6 +188,18 @@ object RepPrescriber {
         "custom_trx_sprinter_start" to mapOf(
             WorkoutFormat.EMOM to "× 30-40 total",
             WorkoutFormat.AMRAP to "× 20-30 total"
+        ),
+        "custom_bag_rounds" to mapOf(
+            WorkoutFormat.EMOM to "50s freestyle",
+            WorkoutFormat.AMRAP to "40s freestyle"
+        ),
+        "custom_bag_combos" to mapOf(
+            WorkoutFormat.EMOM to "× 6-8 combos",
+            WorkoutFormat.AMRAP to "× 4-6 combos"
+        ),
+        "custom_slider_mountain_climber" to mapOf(
+            WorkoutFormat.EMOM to "× 40-50 total",
+            WorkoutFormat.AMRAP to "× 30-40 total"
         )
     )
 

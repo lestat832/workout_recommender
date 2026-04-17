@@ -49,6 +49,12 @@ class InitializeExercisesUseCase @Inject constructor(
         private const val INIT_VERSION = 3
         private const val KEY_INIT_VERSION = "init_version"
 
+        // Floor used by the backup-restore sanity check. ExerciseDataV2
+        // alone inserts ~94 rows; a healthy DB after KEY_BUNDLED_EXERCISES_SEEDED
+        // has at least this many, so anything well below signals a
+        // restored-prefs / empty-DB asymmetry.
+        private const val MIN_EXERCISE_COUNT_FOR_HEALTHY_DB = 50
+
         private const val KEY_EXERCISES_INITIALIZED = "exercises_initialized"
         private const val KEY_EXERCISE_COUNT = "exercise_count"
         private const val KEY_BUNDLED_EXERCISES_SEEDED = "bundled_exercises_seeded"
@@ -72,6 +78,8 @@ class InitializeExercisesUseCase @Inject constructor(
         private const val KEY_HOME_GYM_EMOM_20260415_SEEDED = "home_gym_emom_20260415_seeded"
         private const val KEY_HOME_GYM_POOL_EXPANSION_4_SEEDED = "home_gym_pool_expansion_4_seeded"
         private const val KEY_HOME_GYM_AMRAP_20260416_SEEDED = "home_gym_amrap_20260416_seeded"
+        private const val KEY_HOME_GYM_POOL_EXPANSION_5_SEEDED = "home_gym_pool_expansion_5_seeded"
+        private const val KEY_HOME_GYM_EMOM_20260417_SEEDED = "home_gym_emom_20260417_seeded"
         private const val KEY_EXERCISE_NAME_PRESCRIPTION_FIX = "exercise_name_prescription_fix"
 
         private val EXERCISE_NAME_FIX_IDS = setOf(
@@ -147,6 +155,14 @@ class InitializeExercisesUseCase @Inject constructor(
             "custom_slider_pike",
             "custom_slider_body_saw"
         )
+
+        // Fifth pool expansion — classic (bodyweight) clap push-up as a
+        // non-TRX alternative in the UPPER_PUSH bucket. Needed by the
+        // Apr 17 EMOM seed below; keeping it in its own expansion step
+        // so the audit trail stays consistent with prior additions.
+        private val POOL_EXPANSION_5_IDS = setOf(
+            "custom_clap_pushup"
+        )
     }
 
     /**
@@ -162,6 +178,24 @@ class InitializeExercisesUseCase @Inject constructor(
             // (e.g., install-over where prefs persisted but DB is empty).
             if (prefs.getInt(KEY_INIT_VERSION, 0) < INIT_VERSION) {
                 android.util.Log.w("InitExercises", "Init version bumped to $INIT_VERSION — clearing all flags")
+                prefs.edit().clear().putInt(KEY_INIT_VERSION, INIT_VERSION).apply()
+            }
+
+            // Backup-restore defense: Android Auto Backup rehydrates
+            // sharedprefs on install but not the Room DB (our backup_rules
+            // only include the sharedpref domain). That leaves every
+            // *_seeded flag=true while the exercises table is empty, and
+            // every safeRun below takes the early-return path. Trust the
+            // DB over the flags: if bundled_exercises claims seeded but
+            // the table has fewer rows than ExerciseDataV2 alone inserts,
+            // clear flags and re-seed from scratch.
+            if (prefs.getBoolean(KEY_BUNDLED_EXERCISES_SEEDED, false) &&
+                exerciseRepository.countExercises() < MIN_EXERCISE_COUNT_FOR_HEALTHY_DB
+            ) {
+                android.util.Log.w(
+                    "InitExercises",
+                    "Seed flags set but DB has ${exerciseRepository.countExercises()} exercises — clearing flags to re-seed"
+                )
                 prefs.edit().clear().putInt(KEY_INIT_VERSION, INIT_VERSION).apply()
             }
 
@@ -297,6 +331,17 @@ class InitializeExercisesUseCase @Inject constructor(
 
             safeRun(KEY_HOME_GYM_AMRAP_20260416_SEEDED) {
                 seedHomeGymAmrap20260416()
+            }
+
+            safeRun(KEY_HOME_GYM_POOL_EXPANSION_5_SEEDED) {
+                val newExercises = HomeGymCatalogSeeder.buildExercises()
+                    .filter { it.id in POOL_EXPANSION_5_IDS }
+                exerciseRepository.insertExercises(newExercises)
+                exerciseRepository.setUserExercises(POOL_EXPANSION_5_IDS.toList())
+            }
+
+            safeRun(KEY_HOME_GYM_EMOM_20260417_SEEDED) {
+                seedHomeGymEmom20260417()
             }
 
             safeRun(KEY_EXERCISE_NAME_PRESCRIPTION_FIX) {
@@ -679,6 +724,52 @@ class InitializeExercisesUseCase @Inject constructor(
         val prescriptions = listOf("\u00d7 10-15", "\u00d7 5-6", "\u00d7 8-10", "30-40 sec")
 
         val workoutId = "home_gym_seed_emom_20260415"
+        val workout = Workout(
+            id = workoutId,
+            date = date,
+            type = WorkoutType.PULL,
+            status = WorkoutStatus.COMPLETED,
+            gymId = homeGym.id,
+            format = WorkoutFormat.EMOM,
+            durationMinutes = 20,
+            completedRounds = 5
+        )
+        workoutRepository.createWorkout(workout)
+
+        resolved.forEachIndexed { index, exercise ->
+            val we = WorkoutExercise(
+                id = UUID.randomUUID().toString(),
+                workoutId = workoutId,
+                exercise = exercise,
+                sets = listOf(Set(reps = 0, weight = 0f, completed = true)),
+                prescription = prescriptions[index]
+            )
+            workoutRepository.addExerciseToWorkout(workoutId, we)
+        }
+
+        profileComputerUseCase.recomputeFullProfile()
+    }
+
+    private suspend fun seedHomeGymEmom20260417() {
+        val homeGym = gymRepository.getAllGyms().firstOrNull { it.name == "Home Gym" } ?: return
+
+        val date = Calendar.getInstance().apply {
+            set(2026, 3, 17, 5, 30, 0) // April 17 2026, 5:30am
+            set(Calendar.MILLISECOND, 0)
+        }.time
+
+        val exerciseIds = listOf(
+            "custom_jump_squats",
+            "custom_clap_pushup",
+            "custom_trx_pistol_squat",
+            "custom_ab_wheel_rollout"
+        )
+        val resolved = exerciseIds.mapNotNull { exerciseRepository.getExerciseById(it) }
+        if (resolved.size != exerciseIds.size) return
+
+        val prescriptions = listOf("\u00d7 10", "\u00d7 10", "\u00d7 6/side", "\u00d7 10")
+
+        val workoutId = "home_gym_seed_emom_20260417"
         val workout = Workout(
             id = workoutId,
             date = date,

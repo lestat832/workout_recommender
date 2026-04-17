@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface ExerciseRepository {
     fun getAllExercises(): Flow<List<Exercise>>
+    suspend fun countExercises(): Int
     suspend fun getExerciseById(id: String): Exercise?
     suspend fun getExercisesByType(workoutType: WorkoutType): List<Exercise>
     suspend fun getUserActiveExercisesByType(workoutType: WorkoutType): List<Exercise>

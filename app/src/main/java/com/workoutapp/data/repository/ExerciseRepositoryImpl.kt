@@ -48,6 +48,8 @@ class ExerciseRepositoryImpl @Inject constructor(
         return exerciseDao.getExerciseById(id)?.toDomain()
     }
 
+    override suspend fun countExercises(): Int = exerciseDao.countExercises()
+
     override suspend fun getExercisesByType(workoutType: WorkoutType): List<Exercise> {
         return exerciseDao.getExercisesByType(workoutType).map { it.toDomain() }
     }

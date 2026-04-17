@@ -339,6 +339,13 @@ object HomeGymMovementCatalog {
             equipment = "Suspension Trainer",
             instructions = "Face away from the anchor with hands in the handles in a plank. Perform an explosive push-up driving the body up fast enough to clap the hands together briefly at the top before catching and lowering under control."
         ),
+        Movement(
+            id = "custom_clap_pushup",
+            name = "Clap Push-Up",
+            bucket = Bucket.UPPER_PUSH,
+            equipment = "Bodyweight",
+            instructions = "Start in a push-up position with hands slightly wider than shoulders. Lower under control, then press up explosively so the hands leave the ground. Clap once at the top, land with soft elbows, and absorb back into the next rep."
+        ),
 
         // ── CORE ────────────────────────────────────────────────────────────
         Movement(

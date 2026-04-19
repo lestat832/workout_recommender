@@ -275,7 +275,7 @@ class InitializeExercisesUseCase @Inject constructor(
             }
 
             safeRun(KEY_HEVY_HISTORY_SEEDED) {
-                val lmuGym = gymRepository.getAllGyms().firstOrNull { it.name == "LMU Gym" }
+                val lmuGym = gymRepository.getAllGyms().firstOrNull { it.name == "Gym" }
                 hevyHistorySeeder.seedFromBundledCsv(gymId = lmuGym?.id)
             }
 
@@ -286,7 +286,7 @@ class InitializeExercisesUseCase @Inject constructor(
             }
 
             safeRun(KEY_LMU_BODYWEIGHT_REMOVED) {
-                val lmuGymForEquip = gymRepository.getAllGyms().firstOrNull { it.name == "LMU Gym" }
+                val lmuGymForEquip = gymRepository.getAllGyms().firstOrNull { it.name == "Gym" }
                 if (lmuGymForEquip != null) {
                     val filtered = lmuGymForEquip.equipmentList.filterNot { it in listOf("Bodyweight", "None") }
                     gymRepository.updateGym(lmuGymForEquip.copy(equipmentList = filtered))
@@ -486,7 +486,7 @@ class InitializeExercisesUseCase @Inject constructor(
     }
 
     private suspend fun seedLmuBench20260412() {
-        val lmuGym = gymRepository.getAllGyms().firstOrNull { it.name == "LMU Gym" } ?: return
+        val lmuGym = gymRepository.getAllGyms().firstOrNull { it.name == "Gym" } ?: return
         // Hevy seeder stores exercises under their Hevy name (not the mapped
         // app name), so look up "Bench Press (Barbell)" not "Barbell Bench Press"
         val exercise = exerciseRepository.getExerciseByName("Bench Press (Barbell)")
@@ -638,7 +638,7 @@ class InitializeExercisesUseCase @Inject constructor(
      * Row) uses total plate weight.
      */
     private suspend fun seedLmuPull20260414() {
-        val lmuGym = gymRepository.getAllGyms().firstOrNull { it.name == "LMU Gym" } ?: return
+        val lmuGym = gymRepository.getAllGyms().firstOrNull { it.name == "Gym" } ?: return
 
         // Hevy name lookups (Hevy seeder stores under Hevy names, not mapped app names).
         val squatCurl = exerciseRepository.getExerciseByName("Squat Curl")

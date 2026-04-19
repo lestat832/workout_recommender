@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.workoutapp.presentation.ui.theme.WolfBlue
+import com.workoutapp.presentation.ui.theme.WolfCharcoal
 import com.workoutapp.presentation.ui.theme.WorkoutAppTheme
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.Image
@@ -61,7 +63,7 @@ fun SplashScreen(onAnimationEnd: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF2B2D42)), // wolf_charcoal
+            .background(WolfCharcoal),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -94,7 +96,7 @@ fun SplashScreen(onAnimationEnd: () -> Unit) {
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Normal,
                 letterSpacing = 1.sp,
-                color = Color(0xFF3B82F6).copy(alpha = 0.9f) // wolf_blue
+                color = WolfBlue.copy(alpha = 0.9f)
             )
         }
     }

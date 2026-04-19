@@ -7,6 +7,7 @@ import com.workoutapp.domain.model.SetPrescription
 import com.workoutapp.domain.model.SetType
 import com.workoutapp.domain.model.WorkoutExercise
 import com.workoutapp.domain.model.WorkoutPrescription
+import kotlin.math.roundToInt
 
 private const val TAG = "FortisLupus"
 
@@ -439,7 +440,7 @@ data class StrengthPrescription(
                        else "${targetRepsMin}-${targetRepsMax}"
         val base = "Target: $targetSets × $repRange"
         val weight = recommendedWeight?.let { w ->
-            if (w % 1f == 0f) " @ ${w.toInt()} lb" else " @ $w lb"
+            " @ ${w.roundToInt()} lb"
         } ?: ""
         return base + weight
     }

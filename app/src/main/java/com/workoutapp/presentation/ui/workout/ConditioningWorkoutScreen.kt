@@ -9,12 +9,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
@@ -284,18 +286,28 @@ private fun ActiveWorkoutContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (uiState.format == WorkoutFormat.AMRAP) {
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = "Rounds: ${uiState.rounds}",
+                    text = "Rounds completed: ${uiState.rounds}",
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f)
                 )
-                OutlinedButton(onClick = onIncrementRound) {
-                    Text("+1 Round")
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = onIncrementRound,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(72.dp),
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "LOG ROUND",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))

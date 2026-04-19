@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
         MuscleGroupProfileEntity::class,
         GlobalProfileEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = false
 )
 @TypeConverters(DateConverter::class, SetListConverter::class, StringListConverter::class, MuscleGroupListConverter::class)
@@ -141,6 +141,15 @@ abstract class WorkoutDatabase : RoomDatabase() {
                     INSERT INTO gyms (name, equipmentList, isDefault, createdAt)
                     VALUES ('Home Gym', '$allEquipment', 1, $currentTime)
                 """)
+            }
+        }
+
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Rename the default commercial gym from 'LMU Gym' to the generic 'Gym'
+                // so the distinction is home-vs-commercial rather than tied to a specific
+                // venue. Classname LmuLegCatalog and internal IDs stay as-is.
+                db.execSQL("UPDATE gyms SET name = 'Gym' WHERE name = 'LMU Gym'")
             }
         }
 
@@ -305,7 +314,7 @@ abstract class WorkoutDatabase : RoomDatabase() {
                     WorkoutDatabase::class.java,
                     "workout_database"
                 )
-                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
                     // Allow destructive recovery only for hypothetical pre-v3 installs
                     // (the project has no committed v1/v2 migrations and has shipped
                     // v3+ since its earliest tracked schema). Any unhandled v3+ upgrade
@@ -323,7 +332,7 @@ abstract class WorkoutDatabase : RoomDatabase() {
                             db.execSQL(
                                 """
                                 INSERT INTO gyms (name, equipmentList, isDefault, createdAt, workoutStyle)
-                                VALUES ('LMU Gym', '$lmuEquipment', 1, $now, 'STRENGTH')
+                                VALUES ('Gym', '$lmuEquipment', 1, $now, 'STRENGTH')
                                 """
                             )
                             db.execSQL(

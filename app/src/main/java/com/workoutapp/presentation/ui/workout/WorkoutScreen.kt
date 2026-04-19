@@ -35,6 +35,7 @@ import com.workoutapp.domain.model.WorkoutPrescription
 import com.workoutapp.presentation.ui.components.FatigueWarningCaption
 import com.workoutapp.presentation.ui.components.RirChipRow
 import com.workoutapp.presentation.viewmodel.WorkoutViewModel
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,7 +80,10 @@ fun WorkoutScreen(
                 title = { Text("The Hunt") },
                 navigationIcon = {
                     IconButton(onClick = {
-                        if (uiState.error != null || uiState.exercises.isEmpty()) {
+                        // Silently cancel (cleans up the in-progress DB row) when there's
+                        // nothing to save — no logged sets means the user never really
+                        // started. Only prompt Save/Discard/Continue once progress exists.
+                        if (uiState.error != null || uiState.exercises.isEmpty() || !uiState.hasLoggedSets) {
                             viewModel.cancelWorkout()
                         } else {
                             showCancelDialog = true
@@ -384,7 +388,7 @@ fun ExerciseCard(
                                 "${setPrescription.targetRepsMin}-${setPrescription.targetRepsMax}"
                             }
                             val weightStr = setPrescription.recommendedWeight?.let { w ->
-                                if (w % 1f == 0f) " @ ${w.toInt()} lb" else " @ $w lb"
+                                " @ ${w.roundToInt()} lb"
                             } ?: ""
                             Text(
                                 text = "$prefix$repRange reps$weightStr",
@@ -494,9 +498,7 @@ fun SetRow(
     onToggleCompletion: () -> Unit
 ) {
     fun formatWeight(value: Float): String {
-        return if (value == 0f) "" 
-        else if (value % 1 == 0f) value.toInt().toString()
-        else value.toString()
+        return if (value == 0f) "" else value.roundToInt().toString()
     }
     
     // Use simple String state

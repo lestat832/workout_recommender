@@ -39,6 +39,7 @@ import com.workoutapp.domain.model.GymWorkoutStyle
 import com.workoutapp.domain.model.Workout
 import com.workoutapp.domain.model.WorkoutFormat
 import com.workoutapp.domain.model.WorkoutType
+import com.workoutapp.presentation.ui.theme.StravaOrange
 import com.workoutapp.presentation.viewmodel.HomeViewModel
 import com.workoutapp.presentation.viewmodel.ImportState
 import java.text.SimpleDateFormat
@@ -52,6 +53,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.LaunchedEffect
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import kotlin.math.roundToInt
 import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -195,7 +197,7 @@ fun HomeScreen(
                                         .align(Alignment.TopEnd)
                                         .offset(x = 2.dp, y = (-2).dp)
                                         .background(
-                                            color = Color(0xFFFC4C02),
+                                            color = StravaOrange,
                                             shape = CircleShape
                                         )
                                 )
@@ -934,7 +936,7 @@ fun ExerciseDetailRow(workoutExercise: com.workoutapp.domain.model.WorkoutExerci
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "${set.weight.toInt()} lbs \u00d7 ${set.reps} reps",
+                            text = "${set.weight.roundToInt()} lbs \u00d7 ${set.reps} reps",
                             style = MaterialTheme.typography.bodySmall
                         )
                     }

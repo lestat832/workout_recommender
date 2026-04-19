@@ -61,6 +61,10 @@ class ConditioningWorkoutViewModel @Inject constructor(
 
     private var currentWorkout: Workout? = null
 
+    // Per-slot history of recent shuffle picks (keyed by WorkoutExercise.id) so
+    // repeated taps on the same ↻ icon don't cycle the same few options.
+    private val shuffleMemory: MutableMap<String, ArrayDeque<String>> = mutableMapOf()
+
     init {
         generateWorkout()
     }
@@ -186,7 +190,16 @@ class ConditioningWorkoutViewModel @Inject constructor(
             }
             if (candidates.isEmpty()) return@launch
 
-            val newMovement = candidates.random()
+            // Shuffle memory: bias away from recent picks for this slot so repeated
+            // taps produce variety. Fall back to full candidate pool if memory
+            // would empty it.
+            val memory = shuffleMemory.getOrPut(exerciseId) { ArrayDeque() }
+            val candidatesAfterMemory = candidates.filterNot { it.id in memory }
+            val finalCandidates = if (candidatesAfterMemory.isNotEmpty()) candidatesAfterMemory else candidates
+
+            val newMovement = finalCandidates.random()
+            memory.addLast(newMovement.id)
+            while (memory.size > SHUFFLE_MEMORY_WINDOW) memory.removeFirst()
             val newExercise = exerciseRepository.getExerciseById(newMovement.id) ?: return@launch
 
             val updatedSessionIds = _uiState.value.exercises.map {
@@ -326,3 +339,7 @@ data class ConditioningUiState(
     val isCompleted: Boolean = false,
     val fatigueWarning: String? = null
 )
+
+// How many recent picks to remember per slot for shuffle variety. Matches the
+// strength side (WorkoutViewModel.SHUFFLE_MEMORY_WINDOW) so behavior is consistent.
+private const val SHUFFLE_MEMORY_WINDOW = 3

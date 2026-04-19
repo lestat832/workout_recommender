@@ -59,6 +59,11 @@ class WorkoutViewModel @Inject constructor(
     private var blockState: com.workoutapp.domain.usecase.BlockPeriodization.State? = null
     private var workoutStartTime: Long = System.currentTimeMillis()
 
+    // Per-slot history of recent shuffle picks. Keyed by WorkoutExercise.id (stable across
+    // swaps after replaceExercise preserves the slot UUID). Used to bias the candidate pool
+    // away from exercises that just cycled through so repeated taps actually vary.
+    private val shuffleMemory: MutableMap<String, ArrayDeque<String>> = mutableMapOf()
+
     init {
         startWorkout()
     }
@@ -271,10 +276,24 @@ class WorkoutViewModel @Inject constructor(
             // too few candidates. Keeps variety without forcing a hard 7-day wall.
             val recentExerciseIds = workoutRepository.getExerciseIdsFromLastWeek()
             val preferred = similar.filter { it.id !in recentExerciseIds }
-            val pool = if (preferred.size >= 5) preferred else similar
+            val poolBeforeMemory = if (preferred.size >= 5) preferred else similar
+
+            // Shuffle memory: avoid repeating recent picks for this slot so variety
+            // emerges across consecutive taps on the same ↻ icon. Fall back to the
+            // full pool when memory would empty it — better to repeat than return nothing.
+            val memory = shuffleMemory.getOrPut(exerciseId) { ArrayDeque() }
+            val poolAfterMemory = poolBeforeMemory.filterNot { it.id in memory }
+            val pool = if (poolAfterMemory.isNotEmpty()) poolAfterMemory else poolBeforeMemory
 
             if (pool.isNotEmpty()) {
-                replaceExercise(exerciseId, pool.random())
+                val picked = pool.random()
+                memory.addLast(picked.id)
+                while (memory.size > SHUFFLE_MEMORY_WINDOW) memory.removeFirst()
+                replaceExercise(exerciseId, picked)
+                // Rebuild prescriptions so the freshly-shuffled slot reflects the new
+                // exercise's profile/history, not the stale prescription from the swap-out.
+                val updatedPrescriptions = buildPrescriptions(_uiState.value.exercises)
+                _uiState.value = _uiState.value.copy(prescriptions = updatedPrescriptions)
             }
         }
     }
@@ -309,13 +328,16 @@ class WorkoutViewModel @Inject constructor(
     }
 
     private fun replaceExercise(oldExerciseId: String, newExercise: Exercise) {
+        // Preserve the slot UUID so shuffle memory (keyed by slot id) stays stable
+        // across swaps and LazyColumn keys don't thrash. Clear prescription/rir since
+        // those were computed for the exercise being swapped out.
         val exercises = _uiState.value.exercises.map { workoutExercise ->
             if (workoutExercise.id == oldExerciseId) {
-                WorkoutExercise(
-                    id = UUID.randomUUID().toString(),
-                    workoutId = workoutExercise.workoutId,
+                workoutExercise.copy(
                     exercise = newExercise,
-                    sets = listOf(com.workoutapp.domain.model.Set(reps = 0, weight = 0f, completed = false))
+                    sets = listOf(com.workoutapp.domain.model.Set(reps = 0, weight = 0f, completed = false)),
+                    rir = null,
+                    prescription = null,
                 )
             } else {
                 workoutExercise
@@ -559,9 +581,22 @@ data class WorkoutUiState(
     val error: String? = null,
     val isCompleted: Boolean = false,
     val fatigueWarning: String? = null
-)
+) {
+    // True once the user has touched any set (checked off, typed reps, or typed weight).
+    // Gates the back-nav cancel confirmation — don't interrupt a back-out when nothing
+    // has been logged yet, since there's no progress to save or discard.
+    val hasLoggedSets: Boolean
+        get() = exercises.any { we ->
+            we.sets.any { s -> s.completed || s.reps > 0 || s.weight > 0f }
+        }
+}
 
 // Number of most-recent completed workouts to scan when building the
 // per-exercise history window. Over-fetch beyond the 2-session minimum so
 // sessions that didn't include a given exercise don't starve the lookup.
 private const val HISTORY_LOOKBACK_WORKOUTS = 20
+
+// How many recent picks to remember per slot for shuffle variety. 3 balances
+// visible variety with pool preservation — larger windows starve slots whose
+// similarity pool is already small after equipment/cooldown filtering.
+private const val SHUFFLE_MEMORY_WINDOW = 3

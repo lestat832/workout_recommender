@@ -285,6 +285,13 @@ class WorkoutViewModel @Inject constructor(
             val poolAfterMemory = poolBeforeMemory.filterNot { it.id in memory }
             val pool = if (poolAfterMemory.isNotEmpty()) poolAfterMemory else poolBeforeMemory
 
+            if (com.workoutapp.BuildConfig.DEBUG) {
+                android.util.Log.d("FortisLupus",
+                    "shuffle-strength gym=${gym?.name} similar=${similar.size} " +
+                        "afterCooldown=${preferred.size} poolBeforeMemory=${poolBeforeMemory.size} " +
+                        "poolAfterMemory=${poolAfterMemory.size}")
+            }
+
             if (pool.isNotEmpty()) {
                 val picked = pool.random()
                 memory.addLast(picked.id)
@@ -596,7 +603,8 @@ data class WorkoutUiState(
 // sessions that didn't include a given exercise don't starve the lookup.
 private const val HISTORY_LOOKBACK_WORKOUTS = 20
 
-// How many recent picks to remember per slot for shuffle variety. 3 balances
-// visible variety with pool preservation — larger windows starve slots whose
-// similarity pool is already small after equipment/cooldown filtering.
-private const val SHUFFLE_MEMORY_WINDOW = 3
+// Dropped from 3 → 2 on 2026-04-20. After equipment + muscle-overlap +
+// 7-day cooldown filtering, the "similar" pool can be 5-6 exercises; a
+// smaller memory window leaves more effective picks so repeated shuffle
+// taps feel varied instead of cycling through the same 2-3 exercises.
+private const val SHUFFLE_MEMORY_WINDOW = 2

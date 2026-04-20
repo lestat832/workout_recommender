@@ -149,6 +149,16 @@ class WorkoutRepositoryImpl @Inject constructor(
         return workoutDao.getExerciseIdsFromDate(oneWeekAgo)
     }
 
+    override suspend fun getLastCompletedConditioningWorkoutByGym(gymId: Long): Workout? {
+        val entity = workoutDao.getLastCompletedConditioningWorkoutByGym(gymId) ?: return null
+        return getWorkoutById(entity.id)
+    }
+
+    override suspend fun getExerciseIdsFromLastConditioningWorkoutAtGym(gymId: Long): Set<String> {
+        val last = workoutDao.getLastCompletedConditioningWorkoutByGym(gymId) ?: return emptySet()
+        return workoutDao.getWorkoutExercises(last.id).map { it.exerciseId }.toSet()
+    }
+
     override suspend fun getAllCompletedWorkoutsWithExercises(): List<Workout> {
         return workoutDao.getAllCompletedWorkouts().mapNotNull { entity ->
             getWorkoutById(entity.id)

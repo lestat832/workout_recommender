@@ -67,6 +67,9 @@ interface WorkoutDao {
     @Query("SELECT * FROM workouts WHERE gymId = :gymId AND status = 'COMPLETED' ORDER BY date DESC LIMIT 1")
     suspend fun getLastCompletedWorkoutByGym(gymId: Long): WorkoutEntity?
 
+    @Query("SELECT * FROM workouts WHERE gymId = :gymId AND status = 'COMPLETED' AND format IN ('EMOM', 'AMRAP') ORDER BY date DESC LIMIT 1")
+    suspend fun getLastCompletedConditioningWorkoutByGym(gymId: Long): WorkoutEntity?
+
     @Query("""
         SELECT * FROM workouts
         WHERE gymId = :gymId

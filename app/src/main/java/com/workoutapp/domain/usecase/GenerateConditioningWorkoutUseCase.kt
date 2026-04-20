@@ -52,7 +52,10 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
      * in a prior week.
      */
     suspend fun predictNextFormat(gymId: Long): WorkoutFormat {
-        val lastWorkout = workoutRepository.getLastCompletedWorkoutByGym(gymId)
+        // Use conditioning-only lookup so mixed-format history at this gym
+        // (hypothetical today; real if future versions allow) can't let a
+        // strength session misdirect EMOM/AMRAP alternation.
+        val lastWorkout = workoutRepository.getLastCompletedConditioningWorkoutByGym(gymId)
         if (lastWorkout == null) return WorkoutFormat.EMOM
 
         val weekStart = currentWeekStartMonday()
@@ -91,12 +94,16 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
             .map { fingerprint(it.exercises.map { e -> e.exercise.id }) }
             .toSet()
 
-        val lastPerformedDates = workoutRepository.getExerciseLastPerformedDates()
+        // N=1 cooldown: exclude movements from the single most recent completed
+        // conditioning workout at this gym before selection. Replaces the prior
+        // 0-14 day freshness gradient (user preference — binary recency, not
+        // graded).
+        val cooldownIds = workoutRepository.getExerciseIdsFromLastConditioningWorkoutAtGym(gymId)
 
-        var candidateIds = pickMovementIds(format, lastPerformedDates)
+        var candidateIds = pickMovementIds(format, cooldownIds)
         var attempts = 0
         while (fingerprint(candidateIds) in existingFingerprints && attempts < MAX_RETRIES) {
-            candidateIds = pickMovementIds(format, lastPerformedDates)
+            candidateIds = pickMovementIds(format, cooldownIds)
             attempts++
         }
 
@@ -141,7 +148,7 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
      * strength slots. Prevents brutal all-heavy metcons where a 60s clock
      * across three compound lifts degrades form by round 3-4.
      */
-    private fun pickMovementIds(format: WorkoutFormat, lastPerformedDates: Map<String, java.util.Date>): List<String> {
+    private fun pickMovementIds(format: WorkoutFormat, cooldownIds: Set<String>): List<String> {
         val byBucket = HomeGymMovementCatalog.byBucket()
         val cardio = byBucket[Bucket.CARDIO].orEmpty()
         val lower = byBucket[Bucket.LOWER_BODY].orEmpty()
@@ -150,49 +157,36 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
         val core = byBucket[Bucket.CORE].orEmpty()
         val conditioning = byBucket[Bucket.CONDITIONING_BODYWEIGHT].orEmpty()
 
+        // Apply N=1 cooldown with safe fallback. Every bucket pool passes
+        // through this before selection.
+        fun cooled(list: List<HomeGymMovementCatalog.Movement>) =
+            list.filterNot { it.id in cooldownIds }.ifEmpty { list }
+
         return when (format) {
             WorkoutFormat.EMOM -> {
-                val legsPick = ExerciseFreshness.weightedRandom(lower, weightFn = {
-                    ExerciseFreshness.weight(it.id, lastPerformedDates)
-                }) ?: lower.random()
-                // After each strength pick, if a heavy has already been used
-                // filter the next pool to exclude heavies. `.ifEmpty { pool }`
-                // is a safety net for hypothetical futures where every pull
-                // or push is heavy — today only 1 of 5 is, so the filter
-                // never empties, but the fallback keeps the generator safe.
+                val cooledLower = cooled(lower)
+                val legsPick = cooledLower.random()
                 val pullPool = if (legsPick.isHeavy()) pull.filterNot { it.isHeavy() } else pull
-                val pullCandidates = pullPool.ifEmpty { pull }
-                val pullPick = ExerciseFreshness.weightedRandom(pullCandidates, weightFn = {
-                    ExerciseFreshness.weight(it.id, lastPerformedDates)
-                }) ?: pullCandidates.random()
+                val pullCandidates = cooled(pullPool.ifEmpty { pull })
+                val pullPick = pullCandidates.random()
                 val heavyUsed = legsPick.isHeavy() || pullPick.isHeavy()
                 val pushPool = if (heavyUsed) push.filterNot { it.isHeavy() } else push
-                val pushCandidates = pushPool.ifEmpty { push }
-                val pushPick = ExerciseFreshness.weightedRandom(pushCandidates, weightFn = {
-                    ExerciseFreshness.weight(it.id, lastPerformedDates)
-                }) ?: pushCandidates.random()
-                val closerPool = core + conditioning
-                val closerPick = ExerciseFreshness.weightedRandom(closerPool, weightFn = {
-                    ExerciseFreshness.weight(it.id, lastPerformedDates)
-                }) ?: closerPool.random()
+                val pushCandidates = cooled(pushPool.ifEmpty { push })
+                val pushPick = pushCandidates.random()
+                val closerPool = cooled(core + conditioning)
+                val closerPick = closerPool.random()
                 val picks = mutableListOf(legsPick, pullPick, pushPick, closerPick)
                 capTrx(picks, listOf(lower, pull, push, core + conditioning))
+                enforceTrxAdjacency(picks, listOf(lower, pull, push, core + conditioning))
                 picks.map { it.id }
             }
             WorkoutFormat.AMRAP -> {
-                val cardioPick = ExerciseFreshness.weightedRandom(cardio, weightFn = {
-                    ExerciseFreshness.weight(it.id, lastPerformedDates)
-                }) ?: cardio.random()
-                val strengthPool = lower + pull + push
-                val strengthPick = ExerciseFreshness.weightedRandom(strengthPool, weightFn = {
-                    ExerciseFreshness.weight(it.id, lastPerformedDates)
-                }) ?: strengthPool.random()
-                val closerPool = core + conditioning
-                val closerPick = ExerciseFreshness.weightedRandom(closerPool, weightFn = {
-                    ExerciseFreshness.weight(it.id, lastPerformedDates)
-                }) ?: closerPool.random()
+                val cardioPick = cooled(cardio).random()
+                val strengthPick = cooled(lower + pull + push).random()
+                val closerPick = cooled(core + conditioning).random()
                 val picks = mutableListOf(cardioPick, strengthPick, closerPick)
                 capTrx(picks, listOf(cardio, lower + pull + push, core + conditioning))
+                enforceTrxAdjacency(picks, listOf(cardio, lower + pull + push, core + conditioning))
                 picks.map { it.id }
             }
             else -> error("Unsupported conditioning format: $format")
@@ -225,6 +219,39 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
         for (i in trxIndices.drop(MAX_TRX_PER_SESSION)) {
             val pool = bucketPools[i].filterNot { it.isTrx() || it.id in picks.map { p -> p.id } }
             if (pool.isNotEmpty()) picks[i] = pool.random()
+        }
+    }
+
+    /**
+     * Enforces that no two TRX exercises land in adjacent stations, including
+     * the wraparound edge (last station → first station). Wraparound matters
+     * in EMOM because stations loop continuously; in AMRAP because the block
+     * cycles while the clock runs. After [capTrx] guarantees ≤2 TRX per
+     * session, violations reduce to: "one pair of TRX picks at neighboring
+     * positions mod N."
+     *
+     * Re-roll strategy: when position `i` and position `(i+1) mod N` are both
+     * TRX, replace the latter with a non-TRX movement from its bucket,
+     * excluding any movement already in [picks]. Pool-exhaustion is tolerated
+     * — we accept the adjacency rather than fail generation.
+     */
+    private fun enforceTrxAdjacency(
+        picks: MutableList<HomeGymMovementCatalog.Movement>,
+        bucketPools: List<List<HomeGymMovementCatalog.Movement>>
+    ) {
+        val n = picks.size
+        if (n < 2) return
+        repeat(n) {
+            val violation = (0 until n).firstOrNull { i ->
+                val next = (i + 1) % n
+                picks[i].isTrx() && picks[next].isTrx()
+            } ?: return
+            val replaceAt = (violation + 1) % n
+            val usedIds = picks.map { it.id }.toSet()
+            val pool = bucketPools[replaceAt]
+                .filterNot { it.isTrx() || it.id in usedIds }
+            if (pool.isEmpty()) return
+            picks[replaceAt] = pool.random()
         }
     }
 

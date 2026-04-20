@@ -184,10 +184,32 @@ class ConditioningWorkoutViewModel @Inject constructor(
 
             val currentIds = _uiState.value.exercises.map { it.exercise.id }.toSet()
             val trxCount = _uiState.value.exercises.count { it.exercise.equipment == "Suspension Trainer" }
-            val candidates = pool.filter { m ->
+
+            // N=1 hard cooldown: exclude movements from the single most recent
+            // completed conditioning workout at this gym. The class itself gates
+            // on modality (we're only here for conditioning), so no per-gym
+            // branching needed — always apply.
+            val cooldownIds: kotlin.collections.Set<String> = gymId?.let {
+                workoutRepository.getExerciseIdsFromLastConditioningWorkoutAtGym(it)
+            } ?: emptySet()
+
+            val candidatesBeforeCooldown = pool.filter { m ->
                 m.id !in currentIds &&
                     (trxCount < 2 || m.equipment != "Suspension Trainer")
             }
+            // Safe-fallback: if cooldown empties the pool, accept a repeat
+            // rather than stall the shuffle.
+            val candidates = candidatesBeforeCooldown
+                .filter { it.id !in cooldownIds }
+                .ifEmpty { candidatesBeforeCooldown }
+
+            if (com.workoutapp.BuildConfig.DEBUG) {
+                android.util.Log.d("FortisLupus",
+                    "shuffle-conditioning pool=${pool.size} " +
+                        "afterCurrentAndTrx=${candidatesBeforeCooldown.size} " +
+                        "afterCooldown=${candidates.size}")
+            }
+
             if (candidates.isEmpty()) return@launch
 
             // Shuffle memory: bias away from recent picks for this slot so repeated
@@ -340,6 +362,8 @@ data class ConditioningUiState(
     val fatigueWarning: String? = null
 )
 
-// How many recent picks to remember per slot for shuffle variety. Matches the
-// strength side (WorkoutViewModel.SHUFFLE_MEMORY_WINDOW) so behavior is consistent.
-private const val SHUFFLE_MEMORY_WINDOW = 3
+// Matches strength side (dropped from 3 → 2 on 2026-04-20). Conditioning
+// bucket pools are small by catalog design, so a smaller memory window
+// leaves more effective picks after current-in-workout + TRX-cap +
+// N=1-cooldown + memory filters stack up.
+private const val SHUFFLE_MEMORY_WINDOW = 2

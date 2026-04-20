@@ -266,8 +266,14 @@ class ConditioningWorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             val workout = currentWorkout ?: return@launch
             val id = gymId ?: return@launch
+            // Treat the current preview's movements as also cooldowned so the
+            // generator can't hand back an identical station list after the
+            // user confirms "Regenerate every station with fresh picks."
+            // Falls back naturally (via cooled(...).ifEmpty { ... }) when the
+            // combined exclusion would empty a bucket.
+            val currentIds = workout.exercises.map { it.exercise.id }.toSet()
             val generated = runCatching {
-                generateConditioningWorkoutUseCase(id, workout.format)
+                generateConditioningWorkoutUseCase(id, workout.format, excludedIds = currentIds)
             }.getOrNull() ?: return@launch
             if (generated.exercises.isEmpty()) return@launch
 

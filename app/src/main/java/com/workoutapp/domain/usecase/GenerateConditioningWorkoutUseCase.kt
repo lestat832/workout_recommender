@@ -81,7 +81,8 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
 
     suspend operator fun invoke(
         gymId: Long,
-        formatOverride: WorkoutFormat? = null
+        formatOverride: WorkoutFormat? = null,
+        excludedIds: Set<String> = emptySet()
     ): GeneratedConditioningWorkout {
         // Skip-button flow: when the caller forces a format (user tapped skip
         // on the NextWorkoutCard), use it verbatim. Otherwise pick fresh via
@@ -95,10 +96,13 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
             .toSet()
 
         // N=1 cooldown: exclude movements from the single most recent completed
-        // conditioning workout at this gym before selection. Replaces the prior
+        // conditioning workout at this gym, merged with any caller-supplied
+        // exclusions (e.g., Shuffle All passes the current preview's movements
+        // so regeneration actually produces fresh picks). Replaces the prior
         // 0-14 day freshness gradient (user preference — binary recency, not
         // graded).
-        val cooldownIds = workoutRepository.getExerciseIdsFromLastConditioningWorkoutAtGym(gymId)
+        val cooldownIds =
+            workoutRepository.getExerciseIdsFromLastConditioningWorkoutAtGym(gymId) + excludedIds
 
         var candidateIds = pickMovementIds(format, cooldownIds)
         var attempts = 0
@@ -176,8 +180,11 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
                 val closerPool = cooled(core + conditioning)
                 val closerPick = closerPool.random()
                 val picks = mutableListOf(legsPick, pullPick, pushPick, closerPick)
-                capTrx(picks, listOf(lower, pull, push, core + conditioning))
-                enforceTrxAdjacency(picks, listOf(lower, pull, push, core + conditioning))
+                // Pass cooldown-filtered bucket pools to the post-processing
+                // helpers so TRX rerolls cannot reintroduce an excluded movement.
+                val trxBuckets = listOf(cooled(lower), cooled(pull), cooled(push), cooled(core + conditioning))
+                capTrx(picks, trxBuckets)
+                enforceTrxAdjacency(picks, trxBuckets)
                 picks.map { it.id }
             }
             WorkoutFormat.AMRAP -> {
@@ -185,8 +192,9 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
                 val strengthPick = cooled(lower + pull + push).random()
                 val closerPick = cooled(core + conditioning).random()
                 val picks = mutableListOf(cardioPick, strengthPick, closerPick)
-                capTrx(picks, listOf(cardio, lower + pull + push, core + conditioning))
-                enforceTrxAdjacency(picks, listOf(cardio, lower + pull + push, core + conditioning))
+                val trxBuckets = listOf(cooled(cardio), cooled(lower + pull + push), cooled(core + conditioning))
+                capTrx(picks, trxBuckets)
+                enforceTrxAdjacency(picks, trxBuckets)
                 picks.map { it.id }
             }
             else -> error("Unsupported conditioning format: $format")

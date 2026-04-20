@@ -253,6 +253,55 @@ class ConditioningWorkoutViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Regenerate every station in the current workout. Reuses
+     * [GenerateConditioningWorkoutUseCase] so every constraint (bucket
+     * ordering, TRX cap, TRX adjacency, N=1 cooldown, monthly dedup) matches
+     * what the initial generator would produce. Preserves the workout id/date
+     * so in-progress status, Strava sync queue keys, and history all stay
+     * intact. Clears per-slot shuffle memory — stale memory from replaced
+     * slots doesn't apply to fresh picks.
+     */
+    fun shuffleAllStations() {
+        viewModelScope.launch {
+            val workout = currentWorkout ?: return@launch
+            val id = gymId ?: return@launch
+            val generated = runCatching {
+                generateConditioningWorkoutUseCase(id, workout.format)
+            }.getOrNull() ?: return@launch
+            if (generated.exercises.isEmpty()) return@launch
+
+            shuffleMemory.clear()
+
+            val sessionIds = generated.exercises.map { it.id }
+            val newWorkoutExercises = generated.exercises.map { exercise ->
+                WorkoutExercise(
+                    id = UUID.randomUUID().toString(),
+                    workoutId = workout.id,
+                    exercise = exercise,
+                    sets = listOf(Set(reps = 0, weight = 0f, completed = true)),
+                    prescription = RepPrescriber.prescribe(
+                        exerciseId = exercise.id,
+                        format = generated.format,
+                        sessionIds = sessionIds
+                    )
+                )
+            }
+
+            // Replace the exercises on the existing in-progress row so the
+            // workout keeps the same UUID/date (Strava queue, history scan,
+            // and in-progress restore all key on workout id).
+            workoutRepository.replaceExercisesForWorkout(workout.id, newWorkoutExercises)
+            currentWorkout = workout.copy(exercises = newWorkoutExercises)
+
+            _uiState.value = _uiState.value.copy(
+                exercises = newWorkoutExercises,
+                coachNote = buildCoachNote(generated.format, newWorkoutExercises),
+                rounds = 0
+            )
+        }
+    }
+
     fun togglePause() {
         _uiState.value = _uiState.value.copy(isPaused = !_uiState.value.isPaused)
     }

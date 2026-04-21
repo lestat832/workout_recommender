@@ -81,6 +81,7 @@ class InitializeExercisesUseCase @Inject constructor(
         private const val KEY_HOME_GYM_POOL_EXPANSION_5_SEEDED = "home_gym_pool_expansion_5_seeded"
         private const val KEY_HOME_GYM_EMOM_20260417_SEEDED = "home_gym_emom_20260417_seeded"
         private const val KEY_EXERCISE_NAME_PRESCRIPTION_FIX = "exercise_name_prescription_fix"
+        private const val KEY_HOME_GYM_POOL_EXPANSION_6_SEEDED = "home_gym_pool_expansion_6_seeded"
 
         private val EXERCISE_NAME_FIX_IDS = setOf(
             "custom_row_200_400m",
@@ -162,6 +163,15 @@ class InitializeExercisesUseCase @Inject constructor(
         // so the audit trail stays consistent with prior additions.
         private val POOL_EXPANSION_5_IDS = setOf(
             "custom_clap_pushup"
+        )
+
+        // Sixth pool expansion — 4 bodyweight push-up variants added from
+        // user feedback. All UPPER_PUSH bucket, no equipment required.
+        private val POOL_EXPANSION_6_IDS = setOf(
+            "custom_decline_pushup",
+            "custom_diamond_pushup",
+            "custom_spiderman_pushup",
+            "custom_single_leg_pushup"
         )
     }
 
@@ -342,6 +352,13 @@ class InitializeExercisesUseCase @Inject constructor(
 
             safeRun(KEY_HOME_GYM_EMOM_20260417_SEEDED) {
                 seedHomeGymEmom20260417()
+            }
+
+            safeRun(KEY_HOME_GYM_POOL_EXPANSION_6_SEEDED) {
+                val newExercises = HomeGymCatalogSeeder.buildExercises()
+                    .filter { it.id in POOL_EXPANSION_6_IDS }
+                exerciseRepository.insertExercises(newExercises)
+                exerciseRepository.setUserExercises(POOL_EXPANSION_6_IDS.toList())
             }
 
             safeRun(KEY_EXERCISE_NAME_PRESCRIPTION_FIX) {

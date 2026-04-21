@@ -346,6 +346,34 @@ object HomeGymMovementCatalog {
             equipment = "Bodyweight",
             instructions = "Start in a push-up position with hands slightly wider than shoulders. Lower under control, then press up explosively so the hands leave the ground. Clap once at the top, land with soft elbows, and absorb back into the next rep."
         ),
+        Movement(
+            id = "custom_decline_pushup",
+            name = "Decline Push-Up",
+            bucket = Bucket.UPPER_PUSH,
+            equipment = "Bodyweight",
+            instructions = "Place your feet on an elevated surface — a box, bench, chair, or couch — with hands on the floor in a plank. Lower the chest toward the floor, press back up. The elevated feet shift emphasis to the upper chest and front delts."
+        ),
+        Movement(
+            id = "custom_diamond_pushup",
+            name = "Diamond Push-Up",
+            bucket = Bucket.UPPER_PUSH,
+            equipment = "Bodyweight",
+            instructions = "Place the hands under the chest with thumbs and index fingers touching to form a diamond. Lower the chest toward the hands, keeping elbows tucked. Press back up. Emphasizes triceps."
+        ),
+        Movement(
+            id = "custom_spiderman_pushup",
+            name = "Spiderman Push-Up",
+            bucket = Bucket.UPPER_PUSH,
+            equipment = "Bodyweight",
+            instructions = "Start in a push-up position. As you lower into the push-up, drive one knee up toward the same-side elbow. Press back up and alternate sides with each rep."
+        ),
+        Movement(
+            id = "custom_single_leg_pushup",
+            name = "Single-Leg Push-Up",
+            bucket = Bucket.UPPER_PUSH,
+            equipment = "Bodyweight",
+            instructions = "Start in a push-up position and lift one leg off the floor, keeping it straight and hips square. Perform a push-up. Complete the set, then switch legs."
+        ),
 
         // ── CORE ────────────────────────────────────────────────────────────
         Movement(

@@ -86,6 +86,7 @@ class InitializeExercisesUseCase @Inject constructor(
         private const val KEY_HOME_GYM_EMOM_20260421_SEEDED = "home_gym_emom_20260421_seeded"
         private const val KEY_HOME_GYM_POOL_EXPANSION_8_SEEDED = "home_gym_pool_expansion_8_seeded"
         private const val KEY_HOME_GYM_EQUIPMENT_PLYO_BOX_ADDED = "home_gym_equipment_plyo_box_added"
+        private const val KEY_HOME_GYM_POOL_EXPANSION_9_SEEDED = "home_gym_pool_expansion_9_seeded"
 
         private val EXERCISE_NAME_FIX_IDS = setOf(
             "custom_row_200_400m",
@@ -210,6 +211,26 @@ class InitializeExercisesUseCase @Inject constructor(
             "custom_depth_jump",
             "custom_box_toe_taps",
             "custom_box_burpee"
+        )
+
+        // Ninth pool expansion — 11 calisthenics additions. Fills bodyweight
+        // gaps across LOWER_BODY (wall sit, jump lunges, cossack squat),
+        // UPPER_PULL (chin-up), UPPER_PUSH (archer, hindu, wide-grip,
+        // tricep dip), CORE (hanging knee raise), and CONDITIONING_BODYWEIGHT
+        // (bear crawl, inchworm). Chin-up and hanging knee raise use the
+        // existing "Pull-Up Bar" tag; the rest are plain bodyweight.
+        private val POOL_EXPANSION_9_IDS = setOf(
+            "custom_wall_sit",
+            "custom_jump_lunges",
+            "custom_cossack_squat",
+            "custom_chin_up",
+            "custom_archer_pushup",
+            "custom_hindu_pushup",
+            "custom_wide_grip_pushup",
+            "custom_tricep_dip",
+            "custom_hanging_knee_raise",
+            "custom_bear_crawl",
+            "custom_inchworm"
         )
     }
 
@@ -423,6 +444,13 @@ class InitializeExercisesUseCase @Inject constructor(
                     val updated = homeGym.equipmentList + "Plyo Box"
                     gymRepository.updateGym(homeGym.copy(equipmentList = updated))
                 }
+            }
+
+            safeRun(KEY_HOME_GYM_POOL_EXPANSION_9_SEEDED) {
+                val newExercises = HomeGymCatalogSeeder.buildExercises()
+                    .filter { it.id in POOL_EXPANSION_9_IDS }
+                exerciseRepository.insertExercises(newExercises)
+                exerciseRepository.setUserExercises(POOL_EXPANSION_9_IDS.toList())
             }
 
             safeRun(KEY_EXERCISE_NAME_PRESCRIPTION_FIX) {

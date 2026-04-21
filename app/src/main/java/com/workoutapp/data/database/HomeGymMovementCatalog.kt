@@ -251,6 +251,27 @@ object HomeGymMovementCatalog {
             equipment = "Plyo Box",
             instructions = "Lie on your back with one foot on the box and the other leg extended straight. Drive the hips up by squeezing the glute of the working leg. Lower with control. Complete one side, then switch."
         ),
+        Movement(
+            id = "custom_wall_sit",
+            name = "Wall Sit",
+            bucket = Bucket.LOWER_BODY,
+            equipment = "Bodyweight",
+            instructions = "Stand with your back against a wall. Slide down until your thighs are parallel to the floor and your knees are bent at 90 degrees. Hold the position with the back flat against the wall and core braced."
+        ),
+        Movement(
+            id = "custom_jump_lunges",
+            name = "Jump Lunges",
+            bucket = Bucket.LOWER_BODY,
+            equipment = "Bodyweight",
+            instructions = "Start in a lunge with one leg forward. Explosively jump up and switch legs in midair, landing softly in a lunge with the opposite leg forward. Continue alternating with each rep."
+        ),
+        Movement(
+            id = "custom_cossack_squat",
+            name = "Cossack Squat",
+            bucket = Bucket.LOWER_BODY,
+            equipment = "Bodyweight",
+            instructions = "Stand wide with feet turned out. Shift weight to one side and lower into a deep squat on that leg while the other leg stays straight with toes up. Stand back up and shift to the other side. Move slowly with control — mobility piece as much as strength piece."
+        ),
 
         // ── UPPER BODY PULL ─────────────────────────────────────────────────
         Movement(
@@ -301,6 +322,13 @@ object HomeGymMovementCatalog {
             bucket = Bucket.UPPER_PULL,
             equipment = "Suspension Trainer",
             instructions = "Grip one handle with one hand, the other hand reaching back behind you. Lean back with core braced. Pull yourself up toward the anchor with the working arm while rotating the free arm forward. Lower under control. Alternate sides."
+        ),
+        Movement(
+            id = "custom_chin_up",
+            name = "Chin-Up",
+            bucket = Bucket.UPPER_PULL,
+            equipment = "Pull-Up Bar",
+            instructions = "Grip the bar underhand (palms facing you) at shoulder width. Hang at full extension, then pull your chin above the bar by driving the elbows down and squeezing the biceps and lats. Lower under control."
         ),
 
         // ── UPPER BODY PUSH ─────────────────────────────────────────────────
@@ -401,6 +429,34 @@ object HomeGymMovementCatalog {
             bucket = Bucket.UPPER_PUSH,
             equipment = "Bodyweight",
             instructions = "Start in a push-up position and lift one leg off the floor, keeping it straight and hips square. Perform a push-up. Complete the set, then switch legs."
+        ),
+        Movement(
+            id = "custom_archer_pushup",
+            name = "Archer Push-Up",
+            bucket = Bucket.UPPER_PUSH,
+            equipment = "Bodyweight",
+            instructions = "Start in a push-up position with hands wider than shoulders. Lower toward one hand while the opposite arm extends out straight. Press back up. Alternate which side you load with each rep. Emphasizes unilateral pushing strength."
+        ),
+        Movement(
+            id = "custom_hindu_pushup",
+            name = "Hindu Push-Up",
+            bucket = Bucket.UPPER_PUSH,
+            equipment = "Bodyweight",
+            instructions = "Start in a downward-dog position with hips high. Swoop the chest forward and down in an arc, ending in an upward-dog position with hips low and chest up. Reverse the motion back to downward-dog. Continuous flowing movement."
+        ),
+        Movement(
+            id = "custom_wide_grip_pushup",
+            name = "Wide-Grip Push-Up",
+            bucket = Bucket.UPPER_PUSH,
+            equipment = "Bodyweight",
+            instructions = "Start in a push-up position with hands placed wider than shoulder-width. Lower the chest toward the floor, press back up. The wider hand position shifts emphasis to the outer chest."
+        ),
+        Movement(
+            id = "custom_tricep_dip",
+            name = "Tricep Dip",
+            bucket = Bucket.UPPER_PUSH,
+            equipment = "Bodyweight",
+            instructions = "Sit on the edge of a chair, bench, or sturdy box with hands gripping the edge beside your hips. Slide the hips off the edge and lower by bending the elbows straight back. Press back up by extending the arms, squeezing the triceps at the top."
         ),
 
         // ── CORE ────────────────────────────────────────────────────────────
@@ -572,6 +628,13 @@ object HomeGymMovementCatalog {
             equipment = "Bodyweight",
             instructions = "Sit on the floor with knees bent and feet lifted. Lean back slightly and clasp the hands together at chest height. Rotate the torso to tap the hands to one side of the hips, then the other. Keep the core engaged throughout."
         ),
+        Movement(
+            id = "custom_hanging_knee_raise",
+            name = "Hanging Knee Raise",
+            bucket = Bucket.CORE,
+            equipment = "Pull-Up Bar",
+            instructions = "Hang from the bar with arms extended. Brace the core and pull the knees up toward the chest by contracting the abs. Lower the legs under control without swinging."
+        ),
 
         // ── CONDITIONING / BODYWEIGHT ───────────────────────────────────────
         Movement(
@@ -713,6 +776,20 @@ object HomeGymMovementCatalog {
             bucket = Bucket.CONDITIONING_BODYWEIGHT,
             equipment = "Plyo Box",
             instructions = "Drop into a plank, chest to the floor, pop back up, then jump onto the box. Stand tall at the top, then step down and repeat. A higher-output burpee variant."
+        ),
+        Movement(
+            id = "custom_bear_crawl",
+            name = "Bear Crawl",
+            bucket = Bucket.CONDITIONING_BODYWEIGHT,
+            equipment = "Bodyweight",
+            instructions = "Start on all fours with knees hovering just off the floor in a tabletop position. Crawl forward moving opposite hand and foot together, keeping the hips low and core braced. Reverse to return. Slow and controlled or fast for conditioning."
+        ),
+        Movement(
+            id = "custom_inchworm",
+            name = "Inchworm",
+            bucket = Bucket.CONDITIONING_BODYWEIGHT,
+            equipment = "Bodyweight",
+            instructions = "Stand tall with feet together. Hinge at the hips and walk the hands forward into a plank position. Walk the feet forward toward the hands, keeping the legs as straight as hamstring mobility allows. Stand back up and repeat."
         )
     )
 

@@ -481,6 +481,69 @@ object HomeGymMovementCatalog {
             equipment = "Medicine Ball",
             instructions = "Lie on your back with knees bent, holding the medicine ball at your chest. Sit up while pressing the ball overhead. Lower back down under control. Keep the core braced throughout."
         ),
+        Movement(
+            id = "custom_bicycle_crunch",
+            name = "Bicycle Crunch",
+            bucket = Bucket.CORE,
+            equipment = "Bodyweight",
+            instructions = "Lie on your back with hands behind the head and knees bent. Lift the shoulders off the floor. Bring one elbow toward the opposite knee while extending the other leg. Alternate in a pedaling motion."
+        ),
+        Movement(
+            id = "custom_scissor_kicks",
+            name = "Scissor Kicks",
+            bucket = Bucket.CORE,
+            equipment = "Bodyweight",
+            instructions = "Lie on your back with hands under the glutes, legs extended and lifted a few inches off the floor. Cross one leg over the other in a scissoring motion, alternating continuously. Keep the lower back pressed into the floor."
+        ),
+        Movement(
+            id = "custom_flutter_kicks",
+            name = "Flutter Kicks",
+            bucket = Bucket.CORE,
+            equipment = "Bodyweight",
+            instructions = "Lie on your back with hands under the glutes, legs extended and lifted a few inches off the floor. Flutter the legs up and down in small, alternating movements. Keep the lower back pressed into the floor."
+        ),
+        Movement(
+            id = "custom_leg_raises",
+            name = "Leg Raises",
+            bucket = Bucket.CORE,
+            equipment = "Bodyweight",
+            instructions = "Lie on your back with legs extended and hands at your sides or under the glutes. Keeping the legs straight, lift them toward the ceiling until the hips are slightly off the floor. Lower under control without letting the heels touch the floor."
+        ),
+        Movement(
+            id = "custom_suitcase_crunch",
+            name = "Suitcase Crunch",
+            bucket = Bucket.CORE,
+            equipment = "Bodyweight",
+            instructions = "Lie on your back with arms extended overhead and legs straight. Simultaneously lift the torso and bend the knees toward the chest, bringing the hands to meet the shins. Lower back to the start under control."
+        ),
+        Movement(
+            id = "custom_v_sit",
+            name = "V-Sit",
+            bucket = Bucket.CORE,
+            equipment = "Bodyweight",
+            instructions = "Lie on your back with legs extended and arms overhead. Simultaneously lift the legs and torso into a V-shape, reaching the hands toward the feet. Lower back to the start under control. Keep the core engaged throughout."
+        ),
+        Movement(
+            id = "custom_windshield_wipers",
+            name = "Windshield Wipers",
+            bucket = Bucket.CORE,
+            equipment = "Bodyweight",
+            instructions = "Lie on your back with arms extended out to the sides for stability and legs lifted straight up toward the ceiling. Rotate the legs together to one side, stopping just before they touch the floor. Rotate back through center to the other side."
+        ),
+        Movement(
+            id = "custom_elevated_knee_crunch",
+            name = "Elevated Knee Crunch",
+            bucket = Bucket.CORE,
+            equipment = "Bodyweight",
+            instructions = "Lie on your back with knees bent at 90 degrees and shins parallel to the floor in a tabletop position. Crunch the shoulders up toward the knees, contracting the upper abs. Lower with control without letting the feet drop."
+        ),
+        Movement(
+            id = "custom_russian_twist",
+            name = "Russian Twist",
+            bucket = Bucket.CORE,
+            equipment = "Bodyweight",
+            instructions = "Sit on the floor with knees bent and feet lifted. Lean back slightly and clasp the hands together at chest height. Rotate the torso to tap the hands to one side of the hips, then the other. Keep the core engaged throughout."
+        ),
 
         // ── CONDITIONING / BODYWEIGHT ───────────────────────────────────────
         Movement(

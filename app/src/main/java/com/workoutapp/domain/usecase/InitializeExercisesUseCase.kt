@@ -82,6 +82,7 @@ class InitializeExercisesUseCase @Inject constructor(
         private const val KEY_HOME_GYM_EMOM_20260417_SEEDED = "home_gym_emom_20260417_seeded"
         private const val KEY_EXERCISE_NAME_PRESCRIPTION_FIX = "exercise_name_prescription_fix"
         private const val KEY_HOME_GYM_POOL_EXPANSION_6_SEEDED = "home_gym_pool_expansion_6_seeded"
+        private const val KEY_HOME_GYM_POOL_EXPANSION_7_SEEDED = "home_gym_pool_expansion_7_seeded"
 
         private val EXERCISE_NAME_FIX_IDS = setOf(
             "custom_row_200_400m",
@@ -172,6 +173,22 @@ class InitializeExercisesUseCase @Inject constructor(
             "custom_diamond_pushup",
             "custom_spiderman_pushup",
             "custom_single_leg_pushup"
+        )
+
+        // Seventh pool expansion — 9 bodyweight core additions from user
+        // feedback. All CORE bucket, no equipment. Bodyweight "Russian Twist"
+        // intentionally coexists alongside the existing Medicine Ball
+        // variant as a no-equipment alternative.
+        private val POOL_EXPANSION_7_IDS = setOf(
+            "custom_bicycle_crunch",
+            "custom_scissor_kicks",
+            "custom_flutter_kicks",
+            "custom_leg_raises",
+            "custom_suitcase_crunch",
+            "custom_v_sit",
+            "custom_windshield_wipers",
+            "custom_elevated_knee_crunch",
+            "custom_russian_twist"
         )
     }
 
@@ -359,6 +376,13 @@ class InitializeExercisesUseCase @Inject constructor(
                     .filter { it.id in POOL_EXPANSION_6_IDS }
                 exerciseRepository.insertExercises(newExercises)
                 exerciseRepository.setUserExercises(POOL_EXPANSION_6_IDS.toList())
+            }
+
+            safeRun(KEY_HOME_GYM_POOL_EXPANSION_7_SEEDED) {
+                val newExercises = HomeGymCatalogSeeder.buildExercises()
+                    .filter { it.id in POOL_EXPANSION_7_IDS }
+                exerciseRepository.insertExercises(newExercises)
+                exerciseRepository.setUserExercises(POOL_EXPANSION_7_IDS.toList())
             }
 
             safeRun(KEY_EXERCISE_NAME_PRESCRIPTION_FIX) {

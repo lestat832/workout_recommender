@@ -223,6 +223,34 @@ object HomeGymMovementCatalog {
             equipment = "Kettlebell",
             instructions = "Hold the kettlebell in one hand. Shift weight to the opposite leg. Hinge at the hips while extending the free leg straight back behind you, keeping a flat back. Lower the bell toward the floor until you feel a hamstring stretch. Drive the hips forward to return. Alternate sides."
         ),
+        Movement(
+            id = "custom_step_up",
+            name = "Step-Up",
+            bucket = Bucket.LOWER_BODY,
+            equipment = "Plyo Box",
+            instructions = "Stand facing the box. Step up with one foot, drive through the heel to bring the other foot up alongside. Step back down one foot at a time. Alternate the leading leg each rep or complete one side at a time."
+        ),
+        Movement(
+            id = "custom_bulgarian_split_squat",
+            name = "Bulgarian Split Squat",
+            bucket = Bucket.LOWER_BODY,
+            equipment = "Plyo Box",
+            instructions = "Stand a few feet in front of the box. Place the top of one foot on the box behind you. Lower into a split squat on the front leg, dropping the back knee toward the floor. Drive through the front heel to return. Complete one side, then switch."
+        ),
+        Movement(
+            id = "custom_box_squat",
+            name = "Box Squat",
+            bucket = Bucket.LOWER_BODY,
+            equipment = "Plyo Box",
+            instructions = "Stand in front of the box with feet shoulder-width apart. Sit back and down under control until you lightly touch the box, then stand back up by driving through the heels. The box enforces consistent squat depth."
+        ),
+        Movement(
+            id = "custom_single_leg_glute_bridge",
+            name = "Single-Leg Glute Bridge",
+            bucket = Bucket.LOWER_BODY,
+            equipment = "Plyo Box",
+            instructions = "Lie on your back with one foot on the box and the other leg extended straight. Drive the hips up by squeezing the glute of the working leg. Lower with control. Complete one side, then switch."
+        ),
 
         // ── UPPER BODY PULL ─────────────────────────────────────────────────
         Movement(
@@ -643,6 +671,48 @@ object HomeGymMovementCatalog {
             bucket = Bucket.CONDITIONING_BODYWEIGHT,
             equipment = "Medicine Ball",
             instructions = "Hold the medicine ball at chest in a front rack position. Squat down under control. Stand explosively and toss the ball straight up overhead. Catch the ball as you descend into the next squat. Continuous rhythm."
+        ),
+        Movement(
+            id = "custom_box_jump",
+            name = "Box Jump",
+            bucket = Bucket.CONDITIONING_BODYWEIGHT,
+            equipment = "Plyo Box",
+            instructions = "Stand in front of the box with feet shoulder-width apart. Load the hips and swing the arms to jump up, landing with both feet fully on the box in a soft squat. Stand to full extension, then step down one foot at a time to protect the Achilles. Reset and repeat."
+        ),
+        Movement(
+            id = "custom_box_jump_over",
+            name = "Box Jump Over",
+            bucket = Bucket.CONDITIONING_BODYWEIGHT,
+            equipment = "Plyo Box",
+            instructions = "Stand in front of the box. Jump up onto the box with both feet, then jump off the far side landing soft. Turn and repeat back toward the starting side. Keep a smooth rhythm."
+        ),
+        Movement(
+            id = "custom_step_up_jump",
+            name = "Step-Up Jump",
+            bucket = Bucket.CONDITIONING_BODYWEIGHT,
+            equipment = "Plyo Box",
+            instructions = "Place one foot on the box. Explosively drive up, extending the hip and knee to jump vertically off the box. Land softly back in the starting position with the same foot on the box. Complete one side, then switch."
+        ),
+        Movement(
+            id = "custom_depth_jump",
+            name = "Depth Jump",
+            bucket = Bucket.CONDITIONING_BODYWEIGHT,
+            equipment = "Plyo Box",
+            instructions = "Stand on top of the box. Step off — don't jump — and as your feet touch the floor, immediately rebound into a maximal vertical jump. Minimize ground contact time. Step back onto the box and repeat."
+        ),
+        Movement(
+            id = "custom_box_toe_taps",
+            name = "Box Toe Taps",
+            bucket = Bucket.CONDITIONING_BODYWEIGHT,
+            equipment = "Plyo Box",
+            instructions = "Stand in front of the box. Quickly alternate tapping each foot on top of the box in a fast, light rhythm. Stay on the balls of the feet. Pump the arms to drive cadence."
+        ),
+        Movement(
+            id = "custom_box_burpee",
+            name = "Box Burpee",
+            bucket = Bucket.CONDITIONING_BODYWEIGHT,
+            equipment = "Plyo Box",
+            instructions = "Drop into a plank, chest to the floor, pop back up, then jump onto the box. Stand tall at the top, then step down and repeat. A higher-output burpee variant."
         )
     )
 

@@ -84,6 +84,8 @@ class InitializeExercisesUseCase @Inject constructor(
         private const val KEY_HOME_GYM_POOL_EXPANSION_6_SEEDED = "home_gym_pool_expansion_6_seeded"
         private const val KEY_HOME_GYM_POOL_EXPANSION_7_SEEDED = "home_gym_pool_expansion_7_seeded"
         private const val KEY_HOME_GYM_EMOM_20260421_SEEDED = "home_gym_emom_20260421_seeded"
+        private const val KEY_HOME_GYM_POOL_EXPANSION_8_SEEDED = "home_gym_pool_expansion_8_seeded"
+        private const val KEY_HOME_GYM_EQUIPMENT_PLYO_BOX_ADDED = "home_gym_equipment_plyo_box_added"
 
         private val EXERCISE_NAME_FIX_IDS = setOf(
             "custom_row_200_400m",
@@ -190,6 +192,24 @@ class InitializeExercisesUseCase @Inject constructor(
             "custom_windshield_wipers",
             "custom_elevated_knee_crunch",
             "custom_russian_twist"
+        )
+
+        // Eighth pool expansion — 10 plyo box movements. Introduces a new
+        // "Plyo Box" equipment tag; the companion migration
+        // KEY_HOME_GYM_EQUIPMENT_PLYO_BOX_ADDED appends "Plyo Box" to the
+        // Home Gym equipmentList so the generator can prescribe these.
+        // Spans LOWER_BODY (4) and CONDITIONING_BODYWEIGHT (6) buckets.
+        private val POOL_EXPANSION_8_IDS = setOf(
+            "custom_step_up",
+            "custom_bulgarian_split_squat",
+            "custom_box_squat",
+            "custom_single_leg_glute_bridge",
+            "custom_box_jump",
+            "custom_box_jump_over",
+            "custom_step_up_jump",
+            "custom_depth_jump",
+            "custom_box_toe_taps",
+            "custom_box_burpee"
         )
     }
 
@@ -388,6 +408,21 @@ class InitializeExercisesUseCase @Inject constructor(
 
             safeRun(KEY_HOME_GYM_EMOM_20260421_SEEDED) {
                 seedHomeGymEmom20260421()
+            }
+
+            safeRun(KEY_HOME_GYM_POOL_EXPANSION_8_SEEDED) {
+                val newExercises = HomeGymCatalogSeeder.buildExercises()
+                    .filter { it.id in POOL_EXPANSION_8_IDS }
+                exerciseRepository.insertExercises(newExercises)
+                exerciseRepository.setUserExercises(POOL_EXPANSION_8_IDS.toList())
+            }
+
+            safeRun(KEY_HOME_GYM_EQUIPMENT_PLYO_BOX_ADDED) {
+                val homeGym = gymRepository.getAllGyms().firstOrNull { it.name == "Home Gym" }
+                if (homeGym != null && "Plyo Box" !in homeGym.equipmentList) {
+                    val updated = homeGym.equipmentList + "Plyo Box"
+                    gymRepository.updateGym(homeGym.copy(equipmentList = updated))
+                }
             }
 
             safeRun(KEY_EXERCISE_NAME_PRESCRIPTION_FIX) {

@@ -83,6 +83,7 @@ class InitializeExercisesUseCase @Inject constructor(
         private const val KEY_EXERCISE_NAME_PRESCRIPTION_FIX = "exercise_name_prescription_fix"
         private const val KEY_HOME_GYM_POOL_EXPANSION_6_SEEDED = "home_gym_pool_expansion_6_seeded"
         private const val KEY_HOME_GYM_POOL_EXPANSION_7_SEEDED = "home_gym_pool_expansion_7_seeded"
+        private const val KEY_HOME_GYM_EMOM_20260421_SEEDED = "home_gym_emom_20260421_seeded"
 
         private val EXERCISE_NAME_FIX_IDS = setOf(
             "custom_row_200_400m",
@@ -383,6 +384,10 @@ class InitializeExercisesUseCase @Inject constructor(
                     .filter { it.id in POOL_EXPANSION_7_IDS }
                 exerciseRepository.insertExercises(newExercises)
                 exerciseRepository.setUserExercises(POOL_EXPANSION_7_IDS.toList())
+            }
+
+            safeRun(KEY_HOME_GYM_EMOM_20260421_SEEDED) {
+                seedHomeGymEmom20260421()
             }
 
             safeRun(KEY_EXERCISE_NAME_PRESCRIPTION_FIX) {
@@ -865,6 +870,52 @@ class InitializeExercisesUseCase @Inject constructor(
             format = WorkoutFormat.AMRAP,
             durationMinutes = 15,
             completedRounds = 4
+        )
+        workoutRepository.createWorkout(workout)
+
+        resolved.forEachIndexed { index, exercise ->
+            val we = WorkoutExercise(
+                id = UUID.randomUUID().toString(),
+                workoutId = workoutId,
+                exercise = exercise,
+                sets = listOf(Set(reps = 0, weight = 0f, completed = true)),
+                prescription = prescriptions[index]
+            )
+            workoutRepository.addExerciseToWorkout(workoutId, we)
+        }
+
+        profileComputerUseCase.recomputeFullProfile()
+    }
+
+    private suspend fun seedHomeGymEmom20260421() {
+        val homeGym = gymRepository.getAllGyms().firstOrNull { it.name == "Home Gym" } ?: return
+
+        val date = Calendar.getInstance().apply {
+            set(2026, 3, 21, 5, 30, 0) // April 21 2026, 5:30am
+            set(Calendar.MILLISECOND, 0)
+        }.time
+
+        val exerciseIds = listOf(
+            "custom_heavy_db_goblet_squat",
+            "custom_pull_up",
+            "custom_heavy_db_push_press",
+            "custom_mountain_climbers"
+        )
+        val resolved = exerciseIds.mapNotNull { exerciseRepository.getExerciseById(it) }
+        if (resolved.size != exerciseIds.size) return
+
+        val prescriptions = listOf("× 8", "× 6", "× 6/side", "× 20")
+
+        val workoutId = "home_gym_seed_emom_20260421"
+        val workout = Workout(
+            id = workoutId,
+            date = date,
+            type = WorkoutType.PULL,
+            status = WorkoutStatus.COMPLETED,
+            gymId = homeGym.id,
+            format = WorkoutFormat.EMOM,
+            durationMinutes = 20,
+            completedRounds = 5
         )
         workoutRepository.createWorkout(workout)
 

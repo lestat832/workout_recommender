@@ -87,6 +87,7 @@ class InitializeExercisesUseCase @Inject constructor(
         private const val KEY_HOME_GYM_POOL_EXPANSION_8_SEEDED = "home_gym_pool_expansion_8_seeded"
         private const val KEY_HOME_GYM_EQUIPMENT_PLYO_BOX_ADDED = "home_gym_equipment_plyo_box_added"
         private const val KEY_HOME_GYM_POOL_EXPANSION_9_SEEDED = "home_gym_pool_expansion_9_seeded"
+        private const val KEY_HOME_GYM_AMRAP_20260422_SEEDED = "home_gym_amrap_20260422_seeded"
 
         private val EXERCISE_NAME_FIX_IDS = setOf(
             "custom_row_200_400m",
@@ -457,6 +458,10 @@ class InitializeExercisesUseCase @Inject constructor(
                 val fixes = HomeGymCatalogSeeder.buildExercises()
                     .filter { it.id in EXERCISE_NAME_FIX_IDS }
                 exerciseRepository.insertExercises(fixes)
+            }
+
+            safeRun(KEY_HOME_GYM_AMRAP_20260422_SEEDED) {
+                seedHomeGymAmrap20260422()
             }
 
             Result.success(null)
@@ -994,6 +999,76 @@ class InitializeExercisesUseCase @Inject constructor(
         }
 
         profileComputerUseCase.recomputeFullProfile()
+    }
+
+    /**
+     * Seeds the 2026-04-22 Home Gym AMRAP (15-min, 5 rounds: Bag Rounds +
+     * Pair DB Front Squat + Plank). Unlike the 04/21 EMOM which recovered
+     * an unsaved live session, this AMRAP *was* completed live — the seed
+     * exists to survive a forced uninstall (`allowBackup="false"` wipes
+     * workout history). Idempotent against the live row: if an AMRAP
+     * workout already exists on 04/22 at Home Gym, we skip insertion so
+     * current devices don't end up with a visible duplicate in Pack History.
+     */
+    private suspend fun seedHomeGymAmrap20260422() {
+        val homeGym = gymRepository.getAllGyms().firstOrNull { it.name == "Home Gym" } ?: return
+
+        val date = Calendar.getInstance().apply {
+            set(2026, 3, 22, 5, 0, 0) // April 22 2026, 5:00am
+            set(Calendar.MILLISECOND, 0)
+        }.time
+
+        // Skip if the live AMRAP on this date is already persisted. Prevents
+        // a user-visible duplicate Pack History row on existing installs. On
+        // a fresh install (post-uninstall), this query returns empty and the
+        // seed runs as intended.
+        val existingAmrap = workoutRepository
+            .getConditioningWorkoutsInMonth(homeGym.id)
+            .firstOrNull { it.format == WorkoutFormat.AMRAP && isSameDay(it.date, date) }
+        if (existingAmrap != null) return
+
+        val exerciseIds = listOf(
+            "custom_bag_rounds",
+            "custom_pair_db_squat",
+            "custom_plank"
+        )
+        val resolved = exerciseIds.mapNotNull { exerciseRepository.getExerciseById(it) }
+        if (resolved.size != exerciseIds.size) return
+
+        val prescriptions = listOf("40s freestyle", "× 6-8", "20-30 sec")
+
+        val workoutId = "home_gym_seed_amrap_20260422"
+        val workout = Workout(
+            id = workoutId,
+            date = date,
+            type = WorkoutType.PULL,
+            status = WorkoutStatus.COMPLETED,
+            gymId = homeGym.id,
+            format = WorkoutFormat.AMRAP,
+            durationMinutes = 15,
+            completedRounds = 5
+        )
+        workoutRepository.createWorkout(workout)
+
+        resolved.forEachIndexed { index, exercise ->
+            val we = WorkoutExercise(
+                id = UUID.randomUUID().toString(),
+                workoutId = workoutId,
+                exercise = exercise,
+                sets = listOf(Set(reps = 0, weight = 0f, completed = true)),
+                prescription = prescriptions[index]
+            )
+            workoutRepository.addExerciseToWorkout(workoutId, we)
+        }
+
+        profileComputerUseCase.recomputeFullProfile()
+    }
+
+    private fun isSameDay(a: java.util.Date, b: java.util.Date): Boolean {
+        val ca = Calendar.getInstance().apply { time = a }
+        val cb = Calendar.getInstance().apply { time = b }
+        return ca.get(Calendar.YEAR) == cb.get(Calendar.YEAR) &&
+            ca.get(Calendar.DAY_OF_YEAR) == cb.get(Calendar.DAY_OF_YEAR)
     }
 
     /**

@@ -166,19 +166,35 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
         fun cooled(list: List<HomeGymMovementCatalog.Movement>) =
             list.filterNot { it.id in cooldownIds }.ifEmpty { list }
 
+        val usedFamilies = mutableSetOf<String>()
+
+        // Three-tier fallback: prefer (family-unique ∧ cooldown-fresh); fall
+        // back to cooldown-fresh alone if the family filter empties the pool;
+        // fall back to the raw bucket if cooldown empties it too. Priority
+        // order: always-pick-something > cooldown > family dedup. Family is
+        // the softest constraint because monthly fingerprint + MAX_RETRIES
+        // already handle "don't repeat the identical workout" downstream.
+        fun pickFrom(pool: List<HomeGymMovementCatalog.Movement>): HomeGymMovementCatalog.Movement {
+            val familyAndCooled = pool
+                .filterNot { it.id in cooldownIds }
+                .filter { familyOf(it) == null || familyOf(it) !in usedFamilies }
+            val chosen = when {
+                familyAndCooled.isNotEmpty() -> familyAndCooled.random()
+                else -> cooled(pool).random()
+            }
+            familyOf(chosen)?.let { usedFamilies.add(it) }
+            return chosen
+        }
+
         return when (format) {
             WorkoutFormat.EMOM -> {
-                val cooledLower = cooled(lower)
-                val legsPick = cooledLower.random()
+                val legsPick = pickFrom(lower)
                 val pullPool = if (legsPick.isHeavy()) pull.filterNot { it.isHeavy() } else pull
-                val pullCandidates = cooled(pullPool.ifEmpty { pull })
-                val pullPick = pullCandidates.random()
+                val pullPick = pickFrom(pullPool.ifEmpty { pull })
                 val heavyUsed = legsPick.isHeavy() || pullPick.isHeavy()
                 val pushPool = if (heavyUsed) push.filterNot { it.isHeavy() } else push
-                val pushCandidates = cooled(pushPool.ifEmpty { push })
-                val pushPick = pushCandidates.random()
-                val closerPool = cooled(core + conditioning)
-                val closerPick = closerPool.random()
+                val pushPick = pickFrom(pushPool.ifEmpty { push })
+                val closerPick = pickFrom(core + conditioning)
                 val picks = mutableListOf(legsPick, pullPick, pushPick, closerPick)
                 // Pass cooldown-filtered bucket pools to the post-processing
                 // helpers so TRX rerolls cannot reintroduce an excluded movement.
@@ -188,9 +204,9 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
                 picks.map { it.id }
             }
             WorkoutFormat.AMRAP -> {
-                val cardioPick = cooled(cardio).random()
-                val strengthPick = cooled(lower + pull + push).random()
-                val closerPick = cooled(core + conditioning).random()
+                val cardioPick = pickFrom(cardio)
+                val strengthPick = pickFrom(lower + pull + push)
+                val closerPick = pickFrom(core + conditioning)
                 val picks = mutableListOf(cardioPick, strengthPick, closerPick)
                 val trxBuckets = listOf(cooled(cardio), cooled(lower + pull + push), cooled(core + conditioning))
                 capTrx(picks, trxBuckets)
@@ -198,6 +214,24 @@ class GenerateConditioningWorkoutUseCase @Inject constructor(
                 picks.map { it.id }
             }
             else -> error("Unsupported conditioning format: $format")
+        }
+    }
+
+    /**
+     * Identifies movement "family" for dedup within a single generated
+     * session. Returns null if no pattern matches — unrecognized movements
+     * are treated as their own unique family and never conflict.
+     *
+     * Scope intentionally narrow: push-up variants and burpee variants only.
+     * Expanding to other roots (squat/row/twist) is easy to get wrong because
+     * e.g. Goblet Squat and Wall Ball Squat are legitimately different
+     * movements. Add new entries only when a real duplication is observed.
+     */
+    private fun familyOf(m: HomeGymMovementCatalog.Movement): String? {
+        return when {
+            "Push-Up" in m.name -> "pushup"
+            "Burpee" in m.name -> "burpee"
+            else -> null
         }
     }
 

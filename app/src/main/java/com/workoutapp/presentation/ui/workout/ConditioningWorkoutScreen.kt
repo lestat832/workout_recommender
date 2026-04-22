@@ -18,10 +18,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -68,7 +65,6 @@ fun ConditioningWorkoutScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showCancelDialog by remember { mutableStateOf(false) }
-    var showOverflowMenu by remember { mutableStateOf(false) }
     var showShuffleAllDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.isCompleted) {
@@ -144,26 +140,12 @@ fun ConditioningWorkoutScreen(
                     )
                 },
                 actions = {
-                    // Overflow menu only appears pre-start. Regenerating all
+                    // Shuffle All only appears pre-start. Regenerating all
                     // stations mid-session would invalidate the clock/rounds
                     // model and confuse the user.
                     if (uiState.isPreview) {
-                        Box {
-                            IconButton(onClick = { showOverflowMenu = true }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = "More options")
-                            }
-                            DropdownMenu(
-                                expanded = showOverflowMenu,
-                                onDismissRequest = { showOverflowMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Shuffle All") },
-                                    onClick = {
-                                        showOverflowMenu = false
-                                        showShuffleAllDialog = true
-                                    }
-                                )
-                            }
+                        IconButton(onClick = { showShuffleAllDialog = true }) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Shuffle all stations")
                         }
                     }
                 }

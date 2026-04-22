@@ -112,22 +112,19 @@ fun WorkoutScreen(
                         Text("Complete")
                     }
                     
+                    IconButton(onClick = { showShuffleAllDialog = true }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Shuffle all exercises")
+                    }
+
                     Box {
                         IconButton(onClick = { showOverflowMenu = true }) {
                             Icon(Icons.Default.MoreVert, contentDescription = "More options")
                         }
-                        
+
                         DropdownMenu(
                             expanded = showOverflowMenu,
                             onDismissRequest = { showOverflowMenu = false }
                         ) {
-                            DropdownMenuItem(
-                                text = { Text("Shuffle All") },
-                                onClick = {
-                                    showOverflowMenu = false
-                                    showShuffleAllDialog = true
-                                }
-                            )
                             DropdownMenuItem(
                                 text = { Text("Cancel Workout") },
                                 onClick = {
